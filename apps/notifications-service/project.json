@@ -1,0 +1,26 @@
+{
+  "name": "notifications-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/notifications-service/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/notifications-service",
+        "main": "apps/notifications-service/src/main.ts",
+        "tsConfig": "apps/notifications-service/tsconfig.app.json",
+        "rootDir": ".",
+        "assets": ["apps/notifications-service/src/assets"]
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "options": {
+        "buildTarget": "notifications-service:build"
+      }
+    }
+  },
+  "tags": ["scope:service", "service:notifications"]
+}

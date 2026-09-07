@@ -1,0 +1,26 @@
+{
+  "name": "media-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/media-service/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/media-service",
+        "main": "apps/media-service/src/main.ts",
+        "tsConfig": "apps/media-service/tsconfig.app.json",
+        "rootDir": ".",
+        "assets": ["apps/media-service/src/assets"]
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "options": {
+        "buildTarget": "media-service:build"
+      }
+    }
+  },
+  "tags": ["scope:service", "service:media"]
+}

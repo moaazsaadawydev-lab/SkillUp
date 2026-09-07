@@ -1,0 +1,26 @@
+{
+  "name": "booking-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/booking-service/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/booking-service",
+        "main": "apps/booking-service/src/main.ts",
+        "tsConfig": "apps/booking-service/tsconfig.app.json",
+        "rootDir": ".",
+        "assets": ["apps/booking-service/src/assets"]
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "options": {
+        "buildTarget": "booking-service:build"
+      }
+    }
+  },
+  "tags": ["scope:service", "service:booking"]
+}

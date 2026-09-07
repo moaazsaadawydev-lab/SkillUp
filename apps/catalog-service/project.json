@@ -1,0 +1,26 @@
+{
+  "name": "catalog-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/catalog-service/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/catalog-service",
+        "main": "apps/catalog-service/src/main.ts",
+        "tsConfig": "apps/catalog-service/tsconfig.app.json",
+        "rootDir": ".",
+        "assets": ["apps/catalog-service/src/assets"]
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "options": {
+        "buildTarget": "catalog-service:build"
+      }
+    }
+  },
+  "tags": ["scope:service", "service:catalog"]
+}

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package media;
+
+service MediaService {
+  rpc GetFileUrl (GetFileUrlRequest) returns (FileUrlResponse);
+}
+
+message GetFileUrlRequest {
+  string file_key = 1;
+}
+
+message FileUrlResponse {
+  string url = 1;
+  int64 expires_in = 2;
+}

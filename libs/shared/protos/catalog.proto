@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package catalog;
+
+service CatalogService {
+  rpc GetCourseById (GetCourseByIdRequest) returns (CourseResponse);
+}
+
+message GetCourseByIdRequest {
+  string id = 1;
+}
+
+message CourseResponse {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  double price = 4;
+  string instructor_id = 5;
+}

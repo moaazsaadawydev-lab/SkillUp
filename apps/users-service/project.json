@@ -1,0 +1,26 @@
+{
+  "name": "users-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/users-service/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/users-service",
+        "main": "apps/users-service/src/main.ts",
+        "tsConfig": "apps/users-service/tsconfig.app.json",
+        "rootDir": ".",
+        "assets": ["apps/users-service/src/assets"]
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "options": {
+        "buildTarget": "users-service:build"
+      }
+    }
+  },
+  "tags": ["scope:service", "service:users"]
+}

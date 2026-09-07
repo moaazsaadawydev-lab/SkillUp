@@ -1,0 +1,20 @@
+{
+  "createdAt": "2026-09-07T21:25:34+03:00",
+  "databases": [],
+  "git": {
+    "autoWatch": true,
+    "repoPath": "D:\\Moaz\\Programing\\Projects\\SkillUp"
+  },
+  "httpClient": {
+    "activeEnvironmentId": "",
+    "collections": [],
+    "environments": [],
+    "globalVariables": []
+  },
+  "id": "octa-b19b1b2e-d4ae-4b8f-a4fa-1c49dccae43f",
+  "name": "skillUP",
+  "redis": [],
+  "schemaVersion": 1,
+  "sqlQueries": [],
+  "updatedAt": "2026-09-07T18:26:29.506Z"
+}

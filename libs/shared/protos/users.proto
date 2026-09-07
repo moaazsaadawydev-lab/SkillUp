@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package users;
+
+service UsersService {
+  rpc FindUserById (FindUserByIdRequest) returns (UserResponse);
+  rpc ValidateUser (ValidateUserRequest) returns (UserResponse);
+}
+
+message FindUserByIdRequest {
+  string id = 1;
+}
+
+message ValidateUserRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message UserResponse {
+  string id = 1;
+  string email = 2;
+  string role = 3;
+  string status = 4;
+  string created_at = 5;
+}

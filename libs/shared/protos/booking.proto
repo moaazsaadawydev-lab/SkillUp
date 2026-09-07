@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package booking;
+
+service BookingService {
+  rpc GetBookingById (GetBookingByIdRequest) returns (BookingResponse);
+}
+
+message GetBookingByIdRequest {
+  string id = 1;
+}
+
+message BookingResponse {
+  string id = 1;
+  string user_id = 2;
+  string course_id = 3;
+  string status = 4;
+  string scheduled_at = 5;
+}
