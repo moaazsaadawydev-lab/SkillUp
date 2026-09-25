@@ -1,0 +1,335 @@
+services:
+  # ==============================================================================
+  # Backing Infrastructure Services
+  # ==============================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: skillhub_postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432" # 5433 on host to avoid conflicts, 5432 in container
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-skillhub_db}
+      POSTGRES_MULTIPLE_DATABASES: ${POSTGRES_MULTIPLE_DATABASES:-skillhub_users,skillhub_catalog,skillhub_booking,skillhub_payment}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-skillhub_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skillhub_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: skillhub_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skillhub_network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: skillhub_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - skillhub_network
+
+  minio:
+    image: minio/minio:latest
+    container_name: skillhub_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web Console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skillhub_network
+
+  # ==============================================================================
+  # Application Microservices
+  # ==============================================================================
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+    container_name: skillhub_api_gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      API_GATEWAY_PORT: 3000
+      USERS_SERVICE_GRPC_PORT: 50051
+      USERS_SERVICE_GRPC_URL: users-service:50051
+      CATALOG_SERVICE_GRPC_PORT: 50052
+      CATALOG_SERVICE_GRPC_URL: catalog-service:50052
+      BOOKING_SERVICE_GRPC_PORT: 50053
+      BOOKING_SERVICE_GRPC_URL: booking-service:50053
+      PAYMENT_SERVICE_GRPC_PORT: 50054
+      PAYMENT_SERVICE_GRPC_URL: payment-service:50054
+      NOTIFICATIONS_SERVICE_GRPC_PORT: 50055
+      NOTIFICATIONS_SERVICE_GRPC_URL: notifications-service:50055
+      MEDIA_SERVICE_GRPC_PORT: 50056
+      MEDIA_SERVICE_GRPC_URL: media-service:50056
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_skillup_change_in_production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - skillhub_network
+
+  users-service:
+    build:
+      context: .
+      dockerfile: apps/users-service/Dockerfile
+    container_name: skillhub_users_service
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+      - "50051:50051"
+    environment:
+      NODE_ENV: production
+      USERS_SERVICE_HTTP_PORT: 3001
+      USERS_SERVICE_GRPC_PORT: 50051
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: skillhub_users
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
+      RABBITMQ_USERS_QUEUE: users_queue
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_skillup_change_in_production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - skillhub_network
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: apps/catalog-service/Dockerfile
+    container_name: skillhub_catalog_service
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+      - "50052:50052"
+    environment:
+      NODE_ENV: production
+      CATALOG_SERVICE_HTTP_PORT: 3002
+      CATALOG_SERVICE_GRPC_PORT: 50052
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: skillhub_catalog
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
+      RABBITMQ_CATALOG_QUEUE: catalog_queue
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - skillhub_network
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: apps/booking-service/Dockerfile
+    container_name: skillhub_booking_service
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+      - "50053:50053"
+    environment:
+      NODE_ENV: production
+      BOOKING_SERVICE_HTTP_PORT: 3003
+      BOOKING_SERVICE_GRPC_PORT: 50053
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: skillhub_booking
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
+      RABBITMQ_BOOKING_QUEUE: booking_queue
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - skillhub_network
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: apps/payment-service/Dockerfile
+    container_name: skillhub_payment_service
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+      - "50054:50054"
+    environment:
+      NODE_ENV: production
+      PAYMENT_SERVICE_HTTP_PORT: 3004
+      PAYMENT_SERVICE_GRPC_PORT: 50054
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: skillhub_payment
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
+      RABBITMQ_PAYMENT_QUEUE: payment_queue
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - skillhub_network
+
+  notifications-service:
+    build:
+      context: .
+      dockerfile: apps/notifications-service/Dockerfile
+    container_name: skillhub_notifications_service
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+      - "50055:50055"
+    environment:
+      NODE_ENV: production
+      NOTIFICATIONS_SERVICE_HTTP_PORT: 3005
+      NOTIFICATIONS_SERVICE_GRPC_PORT: 50055
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
+      RABBITMQ_NOTIFICATIONS_QUEUE: notifications_queue
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - skillhub_network
+
+  media-service:
+    build:
+      context: .
+      dockerfile: apps/media-service/Dockerfile
+    container_name: skillhub_media_service
+    restart: unless-stopped
+    ports:
+      - "3006:3006"
+      - "50056:50056"
+    environment:
+      NODE_ENV: production
+      MEDIA_SERVICE_HTTP_PORT: 3006
+      MEDIA_SERVICE_GRPC_PORT: 50056
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
+      RABBITMQ_MEDIA_QUEUE: media_queue
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_DEFAULT_BUCKET: skillhub-media
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - skillhub_network
+
+# ==============================================================================
+# Networks & Volumes
+# ==============================================================================
+
+networks:
+  skillhub_network:
+    name: skillhub_network
+    driver: bridge
+
+volumes:
+  postgres_data:
+    name: skillhub_postgres_data
+    driver: local
+  redis_data:
+    name: skillhub_redis_data
+    driver: local
+  rabbitmq_data:
+    name: skillhub_rabbitmq_data
+    driver: local
+  minio_data:
+    name: skillhub_minio_data
+    driver: local

@@ -1,3 +1,16 @@
+export enum UserStatus {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  BLOCKED = 'BLOCKED',
+}
+
+export enum OutboxStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  PUBLISHED = 'PUBLISHED',
+  FAILED = 'FAILED',
+}
+
 export enum AccountStatus {
   PENDING_VERIFICATION = 'PENDING_VERIFICATION',
   ACTIVE = 'ACTIVE',

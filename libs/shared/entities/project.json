@@ -1,0 +1,7 @@
+{
+  "name": "shared-entities",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/entities/src",
+  "projectType": "library",
+  "tags": ["scope:shared"]
+}

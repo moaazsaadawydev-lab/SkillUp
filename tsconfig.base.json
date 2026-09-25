@@ -20,7 +20,9 @@
       "@skillup/shared/constants": ["libs/shared/constants/src/index.ts"],
       "@skillup/shared/enums": ["libs/shared/enums/src/index.ts"],
       "@skillup/shared/types": ["libs/shared/types/src/index.ts"],
-      "@skillup/shared/interfaces": ["libs/shared/interfaces/src/index.ts"]
+      "@skillup/shared/interfaces": ["libs/shared/interfaces/src/index.ts"],
+      "@skillup/shared/entities": ["libs/shared/entities/src/index.ts"],
+      "@skillup/shared": ["libs/shared/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp", "dist"]

@@ -1,0 +1,31 @@
+# Version control
+.git
+.gitignore
+
+# Package managers & dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs & caches
+dist
+tmp
+out-tsc
+.nx/cache
+.nx/workspace-data
+
+# IDEs & OS metadata
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local environment files (pass via docker-compose / env_file)
+.env
+.env.local
+.env.*.local
+*.md
