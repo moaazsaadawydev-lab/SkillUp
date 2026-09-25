@@ -1,0 +1,7 @@
+{
+  "name": "shared-redis",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/redis/src",
+  "projectType": "library",
+  "tags": ["scope:shared"]
+}

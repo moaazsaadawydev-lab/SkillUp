@@ -1,0 +1,6 @@
+export const RABBITMQ_CONNECTION = 'RABBITMQ_CONNECTION';
+export const RABBITMQ_CHANNEL = 'RABBITMQ_CHANNEL';
+export const RABBITMQ_MODULE_OPTIONS = 'RABBITMQ_MODULE_OPTIONS';
+
+export const DEFAULT_EXCHANGE_NAME = 'skillhub.events';
+export const DEFAULT_EXCHANGE_TYPE = 'topic';

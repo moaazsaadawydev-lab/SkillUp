@@ -20,6 +20,7 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
+  app.setGlobalPrefix('api/v1');
 
   await app.listen(port);
   Logger.log(

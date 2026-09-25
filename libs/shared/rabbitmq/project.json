@@ -1,0 +1,7 @@
+{
+  "name": "shared-rabbitmq",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/rabbitmq/src",
+  "projectType": "library",
+  "tags": ["scope:shared"]
+}

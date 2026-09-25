@@ -12,7 +12,11 @@
     "start:booking": "nx serve booking-service",
     "start:payment": "nx serve payment-service",
     "start:notifications": "nx serve notifications-service",
-    "start:media": "nx serve media-service"
+    "start:media": "nx serve media-service",
+    "typeorm:users": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/users-service/src/database/data-source.ts",
+    "migration:run:users": "npm run typeorm:users -- migration:run",
+    "migration:revert:users": "npm run typeorm:users -- migration:revert",
+    "migration:generate:users": "npm run typeorm:users -- migration:generate"
   },
   "private": true,
   "dependencies": {
@@ -25,6 +29,7 @@
     "@nestjs/microservices": "^10.3.9",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.3.9",
+    "@nestjs/schedule": "^4.1.2",
     "@nestjs/typeorm": "^10.0.2",
     "amqp-connection-manager": "^4.1.14",
     "amqplib": "^0.10.4",
@@ -56,6 +61,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^4.17.21",
     "@types/ioredis": "^5.0.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^20.14.2",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.11.6",

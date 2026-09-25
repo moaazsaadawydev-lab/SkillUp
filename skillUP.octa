@@ -1,20 +1,81 @@
 {
   "createdAt": "2026-09-07T21:25:34+03:00",
-  "databases": [],
+  "databases": [
+    {
+      "database": "postgres",
+      "host": "localhost",
+      "id": "conn-1790310986259",
+      "name": "Skill up hub",
+      "password": "postgres",
+      "port": 5433,
+      "ssl": false,
+      "type": "postgres",
+      "username": "postgres"
+    }
+  ],
   "git": {
     "autoWatch": true,
     "repoPath": "D:\\Moaz\\Programing\\Projects\\SkillUp"
   },
   "httpClient": {
     "activeEnvironmentId": "",
-    "collections": [],
+    "collections": [
+      {
+        "id": "col-1790338191460-t246m",
+        "isOpen": true,
+        "items": [
+          {
+            "id": "folder-1790338209371-t8ked",
+            "isOpen": true,
+            "items": [
+              {
+                "bodyContent": "{\n  \"key\": \"value\"\n}",
+                "bodyFormData": [
+                  {
+                    "enabled": true,
+                    "files": [],
+                    "id": "fd-1790338550940-s27t",
+                    "key": "",
+                    "type": "text",
+                    "value": ""
+                  }
+                ],
+                "bodyType": "form-data",
+                "bodyUrlEncoded": [],
+                "disabledAutoHeaders": [],
+                "headers": [],
+                "id": "req-1790338228318-jc94f",
+                "isDirty": true,
+                "method": "POST",
+                "name": "Register new user",
+                "params": [],
+                "type": "request",
+                "url": "{{baseUR}}/users/auth/register"
+              }
+            ],
+            "name": "Users-service",
+            "type": "folder"
+          }
+        ],
+        "name": "Skillup HUB",
+        "type": "collection"
+      }
+    ],
     "environments": [],
-    "globalVariables": []
+    "globalVariables": [
+      {
+        "enabled": true,
+        "id": "gv-1790338486405",
+        "key": "baseUR",
+        "type": "default",
+        "value": "http://localhost:3000/api/v1"
+      }
+    ]
   },
   "id": "octa-b19b1b2e-d4ae-4b8f-a4fa-1c49dccae43f",
   "name": "skillUP",
   "redis": [],
   "schemaVersion": 1,
   "sqlQueries": [],
-  "updatedAt": "2026-09-25T04:52:43.438Z"
+  "updatedAt": "2026-09-25T12:15:51.542Z"
 }

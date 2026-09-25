@@ -20,3 +20,5 @@ export interface IServiceResponse<T = unknown> {
   data?: T;
   errorCode?: string;
 }
+
+export * from './users-grpc.interface';

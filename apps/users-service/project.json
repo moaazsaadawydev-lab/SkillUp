@@ -20,6 +20,18 @@
       "options": {
         "buildTarget": "users-service:build"
       }
+    },
+    "migration:run": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d apps/users-service/src/database/data-source.ts"
+      }
+    },
+    "migration:revert": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d apps/users-service/src/database/data-source.ts"
+      }
     }
   },
   "tags": ["scope:service", "service:users"]

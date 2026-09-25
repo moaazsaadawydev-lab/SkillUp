@@ -22,6 +22,8 @@
       "@skillup/shared/types": ["libs/shared/types/src/index.ts"],
       "@skillup/shared/interfaces": ["libs/shared/interfaces/src/index.ts"],
       "@skillup/shared/entities": ["libs/shared/entities/src/index.ts"],
+      "@skillup/shared/redis": ["libs/shared/redis/src/index.ts"],
+      "@skillup/shared/rabbitmq": ["libs/shared/rabbitmq/src/index.ts"],
       "@skillup/shared": ["libs/shared/src/index.ts"]
     }
   },
