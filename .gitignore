@@ -11,6 +11,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+
+
 # IDEs and editors
 .idea/
 .project
@@ -35,7 +37,13 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Local project files
+skillUP.octa
+
 # Environment variables
 .env
 .env.local
 .env.*.local
+
+System design
+
