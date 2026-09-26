@@ -88,7 +88,7 @@ export class NotificationConsumerService
               const content = msg.content.toString('utf-8');
               const payload = JSON.parse(content) as VerificationEmailPayload;
 
-              this.logger.log(
+              this.logger.debug(
                 `[RabbitMQ] Received verification email event for: ${payload.email} (MessageId: ${
                   msg.properties.messageId || 'no-id'
                 })`,
@@ -103,7 +103,7 @@ export class NotificationConsumerService
 
               // 2. Acknowledge (ACK) the RabbitMQ message upon success
               channel.ack(msg);
-              this.logger.log(
+              this.logger.debug(
                 `[RabbitMQ] Successfully processed and ACKed message: ${
                   msg.properties.messageId || ''
                 }`,

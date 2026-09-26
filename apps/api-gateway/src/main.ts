@@ -1,4 +1,4 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { LogLevel, Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import cookieParser from 'cookie-parser';
@@ -6,7 +6,13 @@ import { AppModule } from './app.module';
 import { AllExceptionsFilter, LoggingInterceptor } from '@skillup/shared/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const isProd = process.env.NODE_ENV === 'production';
+  const isDebug = process.env.LOG_LEVEL === 'debug' || !isProd;
+  const logLevels: LogLevel[] = isDebug
+    ? ['log', 'error', 'warn', 'debug', 'verbose']
+    : ['log', 'error', 'warn'];
+
+  const app = await NestFactory.create(AppModule, { logger: logLevels });
   const configService = app.get(ConfigService);
   const port = configService.get<number>('API_GATEWAY_PORT', 3000);
   const globalPrefix = 'api/v1';

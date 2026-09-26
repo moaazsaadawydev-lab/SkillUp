@@ -350,7 +350,7 @@ export class UsersService {
     // Enforce max 5 devices / sessions
     const staleSessions = await this.redisService.zrange(userSessionsKey, 0, -6);
     if (staleSessions && staleSessions.length > 0) {
-      this.logger.log(
+      this.logger.debug(
         `Purging ${staleSessions.length} stale session(s) for user ${user.id}`,
       );
       await Promise.all(

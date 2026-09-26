@@ -121,13 +121,13 @@
                 "url": "{{baseURL}}/users/auth/register"
               },
               {
-                "bodyContent": "{\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"code\": \"656738\"\n}",
+                "bodyContent": "{\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"code\": \"\"\n}",
                 "bodyFormData": [],
                 "bodyType": "json",
                 "bodyUrlEncoded": [],
                 "disabledAutoHeaders": [],
                 "headers": [],
-                "id": "req-1790419259319-nkt3v",
+                "id": "req-1790424383316-zgrfj",
                 "isDirty": true,
                 "method": "POST",
                 "name": "verify-account",
@@ -169,5 +169,5 @@
   ],
   "schemaVersion": 1,
   "sqlQueries": [],
-  "updatedAt": "2026-09-26T11:31:28.223Z"
+  "updatedAt": "2026-09-26T12:20:50.832Z"
 }

@@ -48,10 +48,62 @@ export class MinioService implements OnModuleInit {
       } else {
         this.logger.log(`MinIO bucket "${this.defaultBucket}" is ready.`);
       }
+
+      await this.ensurePublicReadPolicy();
     } catch (error) {
       this.logger.warn(
         `Could not verify/create MinIO bucket "${this.defaultBucket}": ${
           error instanceof Error ? error.message : error
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Enforces anonymous public download policy specifically on profile_photos path
+   */
+  private async ensurePublicReadPolicy(): Promise<void> {
+    const policy = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetBucketLocation'],
+          Resource: [`arn:aws:s3:::${this.defaultBucket}`],
+        },
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:ListBucket'],
+          Resource: [`arn:aws:s3:::${this.defaultBucket}`],
+          Condition: {
+            StringEquals: {
+              's3:prefix': ['profile_photos'],
+            },
+          },
+        },
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${this.defaultBucket}/profile_photos*`],
+        },
+      ],
+    };
+
+    try {
+      await this.minioClient.setBucketPolicy(
+        this.defaultBucket,
+        JSON.stringify(policy),
+      );
+      this.logger.debug(
+        `Applied public read-only policy for "${this.defaultBucket}/profile_photos*"`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to set bucket policy on "${this.defaultBucket}": ${
+          err instanceof Error ? err.message : err
         }`,
       );
     }

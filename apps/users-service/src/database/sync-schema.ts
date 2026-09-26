@@ -1,13 +1,20 @@
+import { Logger } from '@nestjs/common';
 import { AppDataSource } from './data-source';
 
+const logger = new Logger('SyncSchema');
+
 async function sync() {
-  console.log('Connecting to PostgreSQL database...');
+  logger.log('Connecting to PostgreSQL database...');
   await AppDataSource.initialize();
-  console.log(`Connected to: ${AppDataSource.options.database} on port ${(AppDataSource.options as any).port}`);
-  
-  console.log('Synchronizing schema (creating tables and constraints)...');
+  logger.log(
+    `Connected to: ${AppDataSource.options.database} on port ${
+      (AppDataSource.options as any).port
+    }`,
+  );
+
+  logger.log('Synchronizing schema (creating tables and constraints)...');
   await AppDataSource.synchronize(false);
-  console.log('Schema synchronized successfully!');
+  logger.log('Schema synchronized successfully!');
 
   const queryRunner = AppDataSource.createQueryRunner();
   const tables = await queryRunner.getTables([
@@ -15,15 +22,15 @@ async function sync() {
     'email_changes_history',
     'outbox_messages',
   ]);
-  console.log('Verified tables in database:');
+  logger.log('Verified tables in database:');
   for (const table of tables) {
-    console.log(` - ${table.name} (${table.columns.length} columns)`);
+    logger.log(` - ${table.name} (${table.columns.length} columns)`);
   }
 
   await AppDataSource.destroy();
 }
 
 sync().catch((err) => {
-  console.error('Schema sync failed:', err);
+  logger.error('Schema sync failed:', err);
   process.exit(1);
 });

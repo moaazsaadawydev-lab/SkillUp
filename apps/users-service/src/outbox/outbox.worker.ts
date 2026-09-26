@@ -87,7 +87,7 @@ export class OutboxWorker {
           msg.processedAt = new Date();
           await queryRunner.manager.save(msg);
 
-          this.logger.log(
+          this.logger.debug(
             `[Outbox] Successfully published event ${msg.eventType} (ID: ${msg.id})`,
           );
         } catch (publishErr) {

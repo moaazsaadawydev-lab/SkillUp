@@ -27,19 +27,19 @@ export class UsersGrpcController implements UsersServiceController {
 
   @GrpcMethod(USERS_SERVICE_NAME, 'CreateUser')
   async createUser(request: CreateUserRequest): Promise<CreateUserResponse> {
-    this.logger.log(`gRPC CreateUser called for email: ${request.email}`);
+    this.logger.debug(`gRPC CreateUser called for email: ${request.email}`);
     return this.usersService.createUser(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'VerifyAccount')
   async verifyAccount(request: VerifyAccountRequest): Promise<VerifyAccountResponse> {
-    this.logger.log(`gRPC VerifyAccount called for email: ${request.email}`);
+    this.logger.debug(`gRPC VerifyAccount called for email: ${request.email}`);
     return this.usersService.verifyAccount(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'FindUserById')
   findUserById(request: FindUserByIdRequest): UserResponse {
-    this.logger.log(`gRPC FindUserById called for user: ${request.id}`);
+    this.logger.debug(`gRPC FindUserById called for user: ${request.id}`);
     return {
       id: request.id,
       email: 'placeholder@skillup.com',
@@ -53,7 +53,7 @@ export class UsersGrpcController implements UsersServiceController {
 
   @GrpcMethod(USERS_SERVICE_NAME, 'ValidateUser')
   validateUser(request: ValidateUserRequest): UserResponse {
-    this.logger.log(`gRPC ValidateUser called for email: ${request.email}`);
+    this.logger.debug(`gRPC ValidateUser called for email: ${request.email}`);
     return {
       id: 'placeholder-uuid',
       email: request.email,
@@ -67,7 +67,7 @@ export class UsersGrpcController implements UsersServiceController {
 
   @GrpcMethod(USERS_SERVICE_NAME, 'UpdateProfile')
   updateProfile(request: UpdateProfileRequest): UpdateProfileResponse {
-    this.logger.log(`gRPC UpdateProfile called for user: ${request.userId}`);
+    this.logger.debug(`gRPC UpdateProfile called for user: ${request.userId}`);
     return {
       success: true,
       message: 'Profile updated successfully (placeholder)',
@@ -77,7 +77,7 @@ export class UsersGrpcController implements UsersServiceController {
 
   @GrpcMethod(USERS_SERVICE_NAME, 'ChangePassword')
   changePassword(request: ChangePasswordRequest): ActionResponse {
-    this.logger.log(`gRPC ChangePassword called for user: ${request.userId}`);
+    this.logger.debug(`gRPC ChangePassword called for user: ${request.userId}`);
     return {
       success: true,
       message: 'Password changed successfully (placeholder)',
@@ -86,7 +86,7 @@ export class UsersGrpcController implements UsersServiceController {
 
   @GrpcMethod(USERS_SERVICE_NAME, 'ForgotPassword')
   forgotPassword(request: ForgotPasswordRequest): ActionResponse {
-    this.logger.log(`gRPC ForgotPassword called for email: ${request.email}`);
+    this.logger.debug(`gRPC ForgotPassword called for email: ${request.email}`);
     return {
       success: true,
       message: 'Password reset code sent successfully (placeholder)',
@@ -95,7 +95,7 @@ export class UsersGrpcController implements UsersServiceController {
 
   @GrpcMethod(USERS_SERVICE_NAME, 'ResetPassword')
   resetPassword(request: ResetPasswordRequest): ActionResponse {
-    this.logger.log(`gRPC ResetPassword called for email: ${request.email}`);
+    this.logger.debug(`gRPC ResetPassword called for email: ${request.email}`);
     return {
       success: true,
       message: 'Password has been reset successfully (placeholder)',

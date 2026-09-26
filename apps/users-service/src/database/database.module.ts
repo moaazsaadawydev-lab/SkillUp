@@ -24,7 +24,8 @@ import { User, EmailChangeHistory, OutboxMessage } from '@skillup/shared/entitie
           database: dbName,
           entities: [User, EmailChangeHistory, OutboxMessage],
           synchronize: true, // Enabled for development schema synchronization
-          logging: true,
+          logging:
+            process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
         };
       },
     }),

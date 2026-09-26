@@ -80,7 +80,7 @@ export class MediaConsumerService implements OnModuleInit, OnModuleDestroy {
               const content = msg.content.toString('utf-8');
               const payload = JSON.parse(content);
 
-              this.logger.log(
+              this.logger.debug(
                 `[RabbitMQ] Received photo processing message: ${msg.properties.messageId || 'no-id'}`,
               );
 
@@ -88,7 +88,7 @@ export class MediaConsumerService implements OnModuleInit, OnModuleDestroy {
 
               // Acknowledge message successfully
               channel.ack(msg);
-              this.logger.log(
+              this.logger.debug(
                 `[RabbitMQ] Message ${msg.properties.messageId || ''} processed and ACKed.`,
               );
             } catch (error) {

@@ -1,11 +1,17 @@
-import { Logger } from '@nestjs/common';
+import { LogLevel, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const isProd = process.env.NODE_ENV === 'production';
+  const isDebug = process.env.LOG_LEVEL === 'debug' || !isProd;
+  const logLevels: LogLevel[] = isDebug
+    ? ['log', 'error', 'warn', 'debug', 'verbose']
+    : ['log', 'error', 'warn'];
+
+  const app = await NestFactory.create(AppModule, { logger: logLevels });
   const grpcPort = process.env.PAYMENT_SERVICE_GRPC_PORT || '50054';
   const httpPort = process.env.PAYMENT_SERVICE_HTTP_PORT || '3004';
 

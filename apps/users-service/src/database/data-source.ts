@@ -24,5 +24,6 @@ export const AppDataSource = new DataSource({
   entities: [User, EmailChangeHistory, OutboxMessage],
   migrations: [resolve(__dirname, 'migrations/*{.ts,.js}')],
   synchronize: true,
-  logging: true,
+  logging:
+    process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
 });
