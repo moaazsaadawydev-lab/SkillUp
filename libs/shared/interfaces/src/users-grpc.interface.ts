@@ -7,6 +7,20 @@ export const USERS_SERVICE_NAME = 'UsersService';
 // Data Contracts (DTOs)
 // =============================================================================
 
+export interface ImageTransformations {
+  cropX?: number;
+  cropY?: number;
+  cropWidth?: number;
+  cropHeight?: number;
+  crop_x?: number;
+  crop_y?: number;
+  crop_width?: number;
+  crop_height?: number;
+  rotate?: number;
+  scale?: number;
+  zoom?: number;
+}
+
 export interface CreateUserRequest {
   id?: string;
   username: string;
@@ -18,6 +32,7 @@ export interface CreateUserRequest {
   profile_photo?: string;
   tempPhotoKey?: string;
   temp_photo_key?: string;
+  transformations?: ImageTransformations;
 }
 
 export interface CreateUserResponse {

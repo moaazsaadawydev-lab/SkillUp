@@ -19,19 +19,7 @@ async function bootstrap() {
     },
   });
 
-  // Connect RabbitMQ Microservice
-  if (process.env.RABBITMQ_URI) {
-    app.connectMicroservice<MicroserviceOptions>({
-      transport: Transport.RMQ,
-      options: {
-        urls: [process.env.RABBITMQ_URI],
-        queue: process.env.RABBITMQ_NOTIFICATIONS_QUEUE || 'notifications_queue',
-        queueOptions: {
-          durable: true,
-        },
-      },
-    });
-  }
+  // RabbitMQ consumption is managed by NotificationConsumerService via RabbitMQModule
 
   await app.startAllMicroservices();
   await app.listen(httpPort);

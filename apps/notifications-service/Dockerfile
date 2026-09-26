@@ -34,6 +34,8 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 COPY --from=prod-deps --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/dist/apps/${APP_NAME} ./dist/apps/${APP_NAME}
+COPY --chown=nestjs:nodejs apps/notifications-service/src/templates ./dist/apps/notifications-service/templates
+COPY --chown=nestjs:nodejs apps/notifications-service/src/templates ./apps/notifications-service/src/templates
 COPY --chown=nestjs:nodejs libs/shared/protos ./libs/shared/protos
 
 USER nestjs

@@ -117,6 +117,7 @@ export class UsersService {
             userId: user.id,
             tempKey: tempPhotoKey,
             targetKey: profilePhoto,
+            transformations: request.transformations || null,
           },
           status: OutboxStatus.PENDING,
           retryCount: 0,

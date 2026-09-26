@@ -1,8 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Minio from 'minio';
-import { randomUUID } from 'crypto';
-import 'multer';
+import { Readable } from 'stream';
 
 @Injectable()
 export class MinioService implements OnModuleInit {
@@ -15,7 +14,9 @@ export class MinioService implements OnModuleInit {
       this.configService.get<string>('MINIO_ENDPOINT') ||
       (process.env.NODE_ENV === 'production' ? 'minio' : 'localhost');
     const port = Number(this.configService.get<number>('MINIO_PORT', 9000));
-    const useSSL = this.configService.get<string>('MINIO_USE_SSL') === 'true';
+    const useSSL =
+      this.configService.get<string>('MINIO_USE_SSL') === 'true' ||
+      this.configService.get<boolean>('MINIO_USE_SSL') === true;
     const accessKey = this.configService.get<string>(
       'MINIO_ACCESS_KEY',
       'minioadmin',
@@ -57,41 +58,47 @@ export class MinioService implements OnModuleInit {
   }
 
   /**
-   * Uploads an avatar/photo buffer to temporary storage in MinIO
-   * Key pattern: tmp/{uuid}_{sanitizedOriginalName}
+   * Retrieves an object as a Buffer from MinIO storage
    */
-  async uploadTempFile(
-    file: Express.Multer.File,
-  ): Promise<{ tempKey: string; bucket: string }> {
-    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const tempKey = `tmp/${randomUUID()}_${sanitizedName}`;
+  async getObject(key: string, bucket?: string): Promise<Buffer> {
+    const targetBucket = bucket || this.defaultBucket;
+    const stream = await this.minioClient.getObject(targetBucket, key);
 
-    try {
-      await this.minioClient.putObject(
-        this.defaultBucket,
-        tempKey,
-        file.buffer,
-        file.size,
-        {
-          'Content-Type': file.mimetype,
-        },
-      );
+    return new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+      stream.on('error', (err) => reject(err));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+    });
+  }
 
-      this.logger.debug(
-        `Uploaded temporary avatar file to MinIO: ${this.defaultBucket}/${tempKey}`,
-      );
+  /**
+   * Uploads an object buffer to MinIO storage
+   */
+  async putObject(
+    key: string,
+    buffer: Buffer,
+    contentType: string,
+    bucket?: string,
+  ): Promise<void> {
+    const targetBucket = bucket || this.defaultBucket;
+    await this.minioClient.putObject(
+      targetBucket,
+      key,
+      buffer,
+      buffer.length,
+      {
+        'Content-Type': contentType,
+      },
+    );
+  }
 
-      return {
-        tempKey,
-        bucket: this.defaultBucket,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Failed to upload file to MinIO: ${tempKey}`,
-        error instanceof Error ? error.stack : error,
-      );
-      throw error;
-    }
+  /**
+   * Deletes an object from MinIO storage
+   */
+  async deleteObject(key: string, bucket?: string): Promise<void> {
+    const targetBucket = bucket || this.defaultBucket;
+    await this.minioClient.removeObject(targetBucket, key);
   }
 
   getClient(): Minio.Client {

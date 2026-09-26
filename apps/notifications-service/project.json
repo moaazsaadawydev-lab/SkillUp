@@ -12,7 +12,19 @@
         "main": "apps/notifications-service/src/main.ts",
         "tsConfig": "apps/notifications-service/tsconfig.app.json",
         "rootDir": ".",
-        "assets": ["apps/notifications-service/src/assets"]
+        "assets": [
+          "apps/notifications-service/src/assets",
+          {
+            "input": "apps/notifications-service/src/templates",
+            "glob": "**/*",
+            "output": "templates"
+          },
+          {
+            "input": "apps/notifications-service/src/templates",
+            "glob": "**/*",
+            "output": "apps/notifications-service/src/templates"
+          }
+        ]
       }
     },
     "serve": {

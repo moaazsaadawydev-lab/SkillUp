@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>أداة قص الصورة (Avatar Cropper)</title>
+  <!-- استدعاء ملفات مكتبة Cropper.js -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+  
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f9;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .img-container {
+      margin-top: 20px;
+      max-height: 400px;
+      overflow: hidden;
+    }
+    img {
+      max-width: 100%;
+      display: none;
+    }
+    .result {
+      margin-top: 20px;
+      background: #2d2d2d;
+      color: #00ff00;
+      padding: 15px;
+      border-radius: 5px;
+      font-size: 16px;
+      direction: ltr;
+      text-align: left;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>1. اختر الصورة</h2>
+    <input type="file" id="uploadImage" accept="image/png, image/jpeg, image/webp">
+    
+    <div class="img-container">
+      <img id="image" src="" alt="Picture">
+    </div>
+
+    <button id="getCropData" style="display: none;">2. استخراج بيانات القص (لـ Postman)</button>
+
+    <pre class="result" id="output">قم برفع صورة لرؤية الإحداثيات هنا...</pre>
+  </div>
+
+  <script>
+    let cropper;
+    const uploadImage = document.getElementById('uploadImage');
+    const image = document.getElementById('image');
+    const getCropDataBtn = document.getElementById('getCropData');
+    const output = document.getElementById('output');
+
+    uploadImage.addEventListener('change', function (e) {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        const reader = new FileReader();
+        
+        reader.onload = function (event) {
+          image.src = event.target.result;
+          image.style.display = 'block';
+          getCropDataBtn.style.display = 'inline-block';
+          
+          // تدمير الـ Cropper القديم لو رفعت صورة تانية
+          if (cropper) {
+            cropper.destroy();
+          }
+
+          // تهيئة Cropper.js
+          cropper = new Cropper(image, {
+            aspectRatio: 1, // إجبار القص ليكون مربع (عشان الـ Avatar الدائري)
+            viewMode: 1,    // منع خروج القص بره حدود الصورة
+            autoCropArea: 0.8,
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    getCropDataBtn.addEventListener('click', function () {
+      if (cropper) {
+        // getData(true) بترجع القيم كأرقام صحيحة (بدون كسور عشرية)
+        const cropData = cropper.getData(true); 
+        
+        const postmanData = {
+          crop_x: cropData.x,
+          crop_y: cropData.y,
+          crop_width: cropData.width,
+          crop_height: cropData.height
+        };
+
+        output.textContent = JSON.stringify(postmanData, null, 2);
+      }
+    });
+  </script>
+</body>
+</html>

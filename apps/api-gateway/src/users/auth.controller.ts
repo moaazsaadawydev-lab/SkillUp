@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -62,15 +63,45 @@ export class AuthController implements OnModuleInit {
     let tempKey: string | undefined;
     let targetKey: string | undefined;
 
-    // 1. If photo is uploaded, store raw buffer in MinIO under temporary key
+    const cropX = dto.crop_x ?? dto.cropX;
+    const cropY = dto.crop_y ?? dto.cropY;
+    const cropWidth = dto.crop_width ?? dto.cropWidth;
+    const cropHeight = dto.crop_height ?? dto.cropHeight;
+    const rotate = dto.rotate ?? 0;
+    const scale = dto.scale ?? dto.zoom ?? 1;
+
+    // 1. Strict validation: If avatar is uploaded, all crop dimensions are mandatory
     if (avatar) {
+      if (
+        cropX === undefined ||
+        cropX === null ||
+        cropY === undefined ||
+        cropY === null ||
+        cropWidth === undefined ||
+        cropWidth === null ||
+        cropHeight === undefined ||
+        cropHeight === null ||
+        isNaN(cropX) ||
+        isNaN(cropY) ||
+        isNaN(cropWidth) ||
+        isNaN(cropHeight) ||
+        cropX < 0 ||
+        cropY < 0 ||
+        cropWidth <= 0 ||
+        cropHeight <= 0
+      ) {
+        throw new BadRequestException(
+          'Crop metadata (crop_x, crop_y, crop_width, crop_height) is required when an avatar image is uploaded',
+        );
+      }
+
+      // Store raw buffer in MinIO under temporary key
       try {
         const uploadResult = await this.minioService.uploadTempFile(avatar);
         tempKey = uploadResult.tempKey;
 
         // Pre-determined destination path (Deterministic Storage Pattern)
-        const timestamp = Date.now();
-        targetKey = `profiles/${userId}/avatar_${timestamp}.webp`;
+        targetKey = `profile_photos/${userId}/avatar.webp`;
 
         this.logger.debug(
           `Determined avatar storage paths: temp=${tempKey}, target=${targetKey}`,
@@ -83,6 +114,22 @@ export class AuthController implements OnModuleInit {
       }
     }
 
+    const transformations = avatar
+      ? {
+          cropX,
+          cropY,
+          cropWidth,
+          cropHeight,
+          crop_x: cropX,
+          crop_y: cropY,
+          crop_width: cropWidth,
+          crop_height: cropHeight,
+          rotate,
+          scale,
+          zoom: scale,
+        }
+      : undefined;
+
     // 2. Invoke users-service over gRPC
     const createPayload: CreateUserRequest = {
       id: userId,
@@ -92,6 +139,7 @@ export class AuthController implements OnModuleInit {
       birthDate: dto.birth_date || dto.birthDate,
       profilePhoto: targetKey,
       tempPhotoKey: tempKey,
+      transformations,
     };
 
     try {

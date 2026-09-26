@@ -16,7 +16,8 @@
     "typeorm:users": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/users-service/src/database/data-source.ts",
     "migration:run:users": "npm run typeorm:users -- migration:run",
     "migration:revert:users": "npm run typeorm:users -- migration:revert",
-    "migration:generate:users": "npm run typeorm:users -- migration:generate"
+    "migration:generate:users": "npm run typeorm:users -- migration:generate",
+    "schema:sync:users": "ts-node -r tsconfig-paths/register apps/users-service/src/database/sync-schema.ts"
   },
   "private": true,
   "dependencies": {
@@ -38,13 +39,16 @@
     "class-validator": "^0.14.1",
     "cross-env": "^7.0.3",
     "dotenv": "^16.4.5",
+    "handlebars": "^4.7.9",
     "ioredis": "^5.4.1",
     "minio": "^8.0.7",
+    "nodemailer": "^10.0.10",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.12.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.4",
     "tslib": "^2.6.2",
     "typeorm": "^0.3.20"
   },
@@ -63,8 +67,10 @@
     "@types/ioredis": "^5.0.0",
     "@types/multer": "^2.2.0",
     "@types/node": "^20.14.2",
+    "@types/nodemailer": "^8.0.2",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.11.6",
+    "@types/sharp": "^0.31.1",
     "nx": "19.3.0",
     "prettier": "^3.3.1",
     "ts-node": "^10.9.2",

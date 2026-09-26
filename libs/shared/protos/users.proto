@@ -85,6 +85,15 @@ message ActionResponse {
   string message = 2;
 }
 
+message ImageTransformations {
+  optional int32 crop_x = 1;
+  optional int32 crop_y = 2;
+  optional int32 crop_width = 3;
+  optional int32 crop_height = 4;
+  optional int32 rotate = 5;
+  optional float scale = 6;
+}
+
 message CreateUserRequest {
   optional string id = 1;
   string username = 2;
@@ -93,6 +102,7 @@ message CreateUserRequest {
   optional string birth_date = 5;
   optional string profile_photo = 6;
   optional string temp_photo_key = 7;
+  optional ImageTransformations transformations = 8;
 }
 
 message CreateUserResponse {
@@ -100,3 +110,4 @@ message CreateUserResponse {
   string message = 2;
   string user_id = 3;
 }
+
