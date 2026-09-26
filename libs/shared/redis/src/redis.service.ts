@@ -128,6 +128,33 @@ export class RedisService implements OnModuleDestroy {
     return this.client.zcard(key);
   }
 
+  async zremRangeByRank(
+    key: string,
+    start: number,
+    stop: number,
+  ): Promise<number> {
+    return this.client.zremrangebyrank(key, start, stop);
+  }
+
+  // ===========================================================================
+  // Hash Operations
+  // ===========================================================================
+
+  async hset(
+    key: string,
+    data: Record<string, string | number>,
+  ): Promise<number> {
+    return this.client.hset(key, data);
+  }
+
+  async hgetall(key: string): Promise<Record<string, string>> {
+    return this.client.hgetall(key);
+  }
+
+  async incr(key: string): Promise<number> {
+    return this.client.incr(key);
+  }
+
   // ===========================================================================
   // Token Blacklist Operations
   // ===========================================================================

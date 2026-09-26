@@ -5,6 +5,8 @@ import {
   UsersServiceController,
   CreateUserRequest,
   CreateUserResponse,
+  VerifyAccountRequest,
+  VerifyAccountResponse,
   FindUserByIdRequest,
   ValidateUserRequest,
   UserResponse,
@@ -27,6 +29,12 @@ export class UsersGrpcController implements UsersServiceController {
   async createUser(request: CreateUserRequest): Promise<CreateUserResponse> {
     this.logger.log(`gRPC CreateUser called for email: ${request.email}`);
     return this.usersService.createUser(request);
+  }
+
+  @GrpcMethod(USERS_SERVICE_NAME, 'VerifyAccount')
+  async verifyAccount(request: VerifyAccountRequest): Promise<VerifyAccountResponse> {
+    this.logger.log(`gRPC VerifyAccount called for email: ${request.email}`);
+    return this.usersService.verifyAccount(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'FindUserById')

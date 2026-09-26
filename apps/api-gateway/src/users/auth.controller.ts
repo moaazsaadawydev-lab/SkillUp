@@ -8,11 +8,15 @@ import {
   Inject,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
   OnModuleInit,
   Post,
+  Req,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ClientGrpc } from '@nestjs/microservices';
 import 'multer';
@@ -23,8 +27,10 @@ import {
   UsersServiceClient,
   CreateUserRequest,
   CreateUserResponse,
+  VerifyAccountResponse,
 } from '@skillup/shared/interfaces';
 import { RegisterRequestDto } from './dto/register-request.dto';
+import { VerifyAccountDto } from './dto/verify-account.dto';
 import { MinioService } from '../storage/minio.service';
 
 @Controller('users/auth')
@@ -171,6 +177,86 @@ export class AuthController implements OnModuleInit {
           grpcError.message ||
           'Internal server error during registration',
       );
+    }
+  }
+
+  /**
+   * POST /api/v1/users/auth/verify-account
+   * Verifies 6-digit OTP, activates user account, and issues auto-login dual-tokens.
+   */
+  @Post('verify-account')
+  @HttpCode(HttpStatus.OK)
+  async verifyAccount(
+    @Body() dto: VerifyAccountDto,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const ipAddress =
+      req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ||
+      req.ip ||
+      req.socket?.remoteAddress ||
+      '127.0.0.1';
+
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    try {
+      const response = await firstValueFrom(
+        this.usersServiceClient.verifyAccount({
+          email: dto.email,
+          code: dto.code,
+          ipAddress,
+          userAgent,
+        }),
+      );
+
+      const refreshToken =
+        response.data?.refreshToken || response.data?.refresh_token;
+
+      if (refreshToken) {
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/api/v1/users/auth', // Scoped to auth endpoints (refresh, logout)
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Account verified and logged in successfully',
+        data: {
+          accessToken:
+            response.data?.accessToken || response.data?.access_token,
+          user: response.data?.user,
+        },
+      };
+    } catch (grpcError: any) {
+      this.logger.error('gRPC VerifyAccount call failed:', grpcError);
+
+      const errorMessage =
+        grpcError.details || grpcError.message || 'Verification failed';
+
+      // 400 Bad Request for invalid OTP, expired, already active, or brute force limits
+      if (
+        grpcError.code === 3 || // INVALID_ARGUMENT
+        grpcError.code === 9 || // FAILED_PRECONDITION
+        errorMessage.toLowerCase().includes('already active') ||
+        errorMessage.toLowerCase().includes('expired') ||
+        errorMessage.toLowerCase().includes('invalid') ||
+        errorMessage.toLowerCase().includes('too many')
+      ) {
+        throw new BadRequestException(errorMessage);
+      }
+
+      if (
+        grpcError.code === 5 ||
+        errorMessage.toLowerCase().includes('not found')
+      ) {
+        throw new NotFoundException(errorMessage);
+      }
+
+      throw new InternalServerErrorException(errorMessage);
     }
   }
 }

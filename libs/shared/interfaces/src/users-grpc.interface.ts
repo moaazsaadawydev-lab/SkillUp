@@ -103,12 +103,36 @@ export interface ActionResponse {
   message: string;
 }
 
+export interface VerifyAccountRequest {
+  email: string;
+  code: string;
+  ipAddress?: string;
+  ip_address?: string;
+  userAgent?: string;
+  user_agent?: string;
+}
+
+export interface AuthData {
+  accessToken: string;
+  refreshToken: string;
+  access_token?: string;
+  refresh_token?: string;
+  user: UserResponse;
+}
+
+export interface VerifyAccountResponse {
+  success: boolean;
+  message: string;
+  data: AuthData;
+}
+
 // =============================================================================
 // gRPC Client & Controller Interfaces
 // =============================================================================
 
 export interface UsersServiceClient {
   createUser(request: CreateUserRequest): Observable<CreateUserResponse>;
+  verifyAccount(request: VerifyAccountRequest): Observable<VerifyAccountResponse>;
   findUserById(request: FindUserByIdRequest): Observable<UserResponse>;
   validateUser(request: ValidateUserRequest): Observable<UserResponse>;
   updateProfile(request: UpdateProfileRequest): Observable<UpdateProfileResponse>;
@@ -121,6 +145,12 @@ export interface UsersServiceController {
   createUser(
     request: CreateUserRequest,
   ): Promise<CreateUserResponse> | Observable<CreateUserResponse> | CreateUserResponse;
+  verifyAccount(
+    request: VerifyAccountRequest,
+  ):
+    | Promise<VerifyAccountResponse>
+    | Observable<VerifyAccountResponse>
+    | VerifyAccountResponse;
   findUserById(
     request: FindUserByIdRequest,
   ): Promise<UserResponse> | Observable<UserResponse> | UserResponse;

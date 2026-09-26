@@ -5,6 +5,7 @@ package users;
 service UsersService {
   // Registration & User Creation
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+  rpc VerifyAccount (VerifyAccountRequest) returns (VerifyAccountResponse);
 
   // User Retrieval & Validation
   rpc FindUserById (FindUserByIdRequest) returns (UserResponse);
@@ -110,3 +111,23 @@ message CreateUserResponse {
   string message = 2;
   string user_id = 3;
 }
+
+message VerifyAccountRequest {
+  string email = 1;
+  string code = 2;
+  string ip_address = 3;
+  string user_agent = 4;
+}
+
+message AuthData {
+  string access_token = 1;
+  string refresh_token = 2;
+  UserResponse user = 3;
+}
+
+message VerifyAccountResponse {
+  bool success = 1;
+  string message = 2;
+  AuthData data = 3;
+}
+
