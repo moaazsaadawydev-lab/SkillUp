@@ -206,18 +206,29 @@ export class UsersService {
     const userAgent = request.userAgent || request.user_agent || 'unknown';
 
     const redisOtpKey = `otp:verify:${normalizedEmail}`;
-    const redisAttemptsKey = `otp:attempts:${normalizedEmail}`;
+    const rateLimitKey = `rate:verify:${normalizedEmail}`;
 
-    // 1. Brute-force guard: Check failed attempts
-    const currentAttemptsStr = await this.redisService.get(redisAttemptsKey);
-    const currentAttempts = currentAttemptsStr ? parseInt(currentAttemptsStr, 10) : 0;
+    // 1. Pre-execution Check: Brute-force & Rate Limit Guard
+    try {
+      const currentAttemptsStr = await this.redisService.get(rateLimitKey);
+      const currentAttempts = currentAttemptsStr
+        ? parseInt(currentAttemptsStr, 10)
+        : 0;
 
-    if (currentAttempts >= 5) {
-      await this.redisService.del(redisOtpKey);
-      throw new RpcException({
-        code: status.INVALID_ARGUMENT,
-        message: 'Too many invalid attempts. Please request a new verification code.',
-      });
+      if (currentAttempts >= 7) {
+        const remainingTtl = await this.redisService.ttl(rateLimitKey);
+        const ttlSeconds = remainingTtl > 0 ? remainingTtl : 15 * 60;
+        throw new RpcException({
+          code: status.RESOURCE_EXHAUSTED,
+          message: `Too many failed verification attempts. Please try again after 15 minutes. [Retry-After: ${ttlSeconds}]`,
+        });
+      }
+    } catch (error) {
+      if (error instanceof RpcException) throw error;
+      this.logger.error(
+        `Failed to check verification rate limit for ${normalizedEmail}:`,
+        error,
+      );
     }
 
     // 2. Validate OTP against stored SHA-256 hash
@@ -235,20 +246,42 @@ export class UsersService {
       .digest('hex');
 
     if (hashedInputCode !== storedHashedOtp) {
-      const attempts = await this.redisService.incr(redisAttemptsKey);
-      if (attempts === 1) {
-        await this.redisService.expire(redisAttemptsKey, 600); // 10 minutes TTL
+      let attempts = 1;
+      try {
+        attempts = await this.redisService.incr(rateLimitKey);
+        if (attempts === 1) {
+          // Set expiration window (15 minutes = 900 seconds) on the very first failure
+          await this.redisService.expire(rateLimitKey, 15 * 60);
+        } else if (attempts >= 7) {
+          // Enforce full 15-minute lock duration on reaching the threshold
+          await this.redisService.expire(rateLimitKey, 15 * 60);
+        }
+      } catch (redisErr) {
+        this.logger.error(
+          `Failed to increment verification rate limit for ${normalizedEmail}:`,
+          redisErr,
+        );
       }
-      if (attempts >= 5) {
-        await this.redisService.del(redisOtpKey);
+
+      if (attempts >= 7) {
+        try {
+          await this.redisService.del(redisOtpKey);
+        } catch (delErr) {
+          this.logger.error(
+            `Failed to delete OTP key for ${normalizedEmail}:`,
+            delErr,
+          );
+        }
         throw new RpcException({
-          code: status.INVALID_ARGUMENT,
-          message: 'Too many invalid attempts. Please request a new verification code.',
+          code: status.RESOURCE_EXHAUSTED,
+          message: `Too many failed verification attempts. Please try again after 15 minutes. [Retry-After: ${15 * 60}]`,
         });
       }
+
+      const remainingAttempts = Math.max(0, 7 - attempts);
       throw new RpcException({
         code: status.INVALID_ARGUMENT,
-        message: 'Invalid verification code.',
+        message: `Invalid verification code. You have ${remainingAttempts} attempts remaining.`,
       });
     }
 
@@ -299,10 +332,11 @@ export class UsersService {
       await queryRunner.release();
     }
 
-    // 4. Redis cleanup of OTP and attempts
+    // 4. Redis cleanup of OTP, rate-limit counter, and legacy attempt keys
     await Promise.all([
+      this.redisService.del(rateLimitKey),
       this.redisService.del(redisOtpKey),
-      this.redisService.del(redisAttemptsKey),
+      this.redisService.del(`otp:attempts:${normalizedEmail}`),
     ]);
 
     // 5. Session issuance & Dual tokens

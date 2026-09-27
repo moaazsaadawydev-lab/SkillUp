@@ -4,6 +4,7 @@ import {
   ConflictException,
   Controller,
   HttpCode,
+  HttpException,
   HttpStatus,
   Inject,
   InternalServerErrorException,
@@ -234,29 +235,53 @@ export class AuthController implements OnModuleInit {
     } catch (grpcError: any) {
       this.logger.error('gRPC VerifyAccount call failed:', grpcError);
 
-      const errorMessage =
+      const rawErrorMessage =
         grpcError.details || grpcError.message || 'Verification failed';
 
-      // 400 Bad Request for invalid OTP, expired, already active, or brute force limits
+      // 429 Too Many Requests: Rate limiting / Brute-force lockout
+      if (
+        grpcError.code === 8 || // RESOURCE_EXHAUSTED
+        rawErrorMessage.toLowerCase().includes('too many') ||
+        rawErrorMessage.toLowerCase().includes('15 minutes')
+      ) {
+        const ttlMatch = rawErrorMessage.match(/\[Retry-After:\s*(\d+)\]/);
+        const retryAfterSeconds = ttlMatch ? parseInt(ttlMatch[1], 10) : 900;
+        const cleanMessage = rawErrorMessage
+          .replace(/\s*\[Retry-After:\s*\d+\]/, '')
+          .trim();
+
+        res.setHeader('Retry-After', retryAfterSeconds.toString());
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: cleanMessage,
+            error: 'Too Many Requests',
+            retryAfter: retryAfterSeconds,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      // 400 Bad Request for invalid OTP, remaining attempts, expired, already active
       if (
         grpcError.code === 3 || // INVALID_ARGUMENT
         grpcError.code === 9 || // FAILED_PRECONDITION
-        errorMessage.toLowerCase().includes('already active') ||
-        errorMessage.toLowerCase().includes('expired') ||
-        errorMessage.toLowerCase().includes('invalid') ||
-        errorMessage.toLowerCase().includes('too many')
+        rawErrorMessage.toLowerCase().includes('already active') ||
+        rawErrorMessage.toLowerCase().includes('expired') ||
+        rawErrorMessage.toLowerCase().includes('invalid') ||
+        rawErrorMessage.toLowerCase().includes('attempts remaining')
       ) {
-        throw new BadRequestException(errorMessage);
+        throw new BadRequestException(rawErrorMessage);
       }
 
       if (
         grpcError.code === 5 ||
-        errorMessage.toLowerCase().includes('not found')
+        rawErrorMessage.toLowerCase().includes('not found')
       ) {
-        throw new NotFoundException(errorMessage);
+        throw new NotFoundException(rawErrorMessage);
       }
 
-      throw new InternalServerErrorException(errorMessage);
+      throw new InternalServerErrorException(rawErrorMessage);
     }
   }
 }
