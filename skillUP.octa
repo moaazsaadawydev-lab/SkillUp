@@ -121,7 +121,7 @@
                 "url": "{{baseURL}}/users/auth/register"
               },
               {
-                "bodyContent": "{\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"code\": \"437334\"\n}",
+                "bodyContent": "{\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"code\": \"338266\"\n}",
                 "bodyFormData": [],
                 "bodyType": "json",
                 "bodyUrlEncoded": [],
@@ -134,6 +134,21 @@
                 "params": [],
                 "type": "request",
                 "url": "{{baseURL}}/users/auth/verify-account"
+              },
+              {
+                "bodyContent": "{\n  \"email\": \"moaazseadawy@gmail.com\"\n}",
+                "bodyFormData": [],
+                "bodyType": "json",
+                "bodyUrlEncoded": [],
+                "disabledAutoHeaders": [],
+                "headers": [],
+                "id": "req-1790580579592-sendcode",
+                "isDirty": true,
+                "method": "POST",
+                "name": "send-verification-code",
+                "params": [],
+                "type": "request",
+                "url": "{{baseURL}}/users/auth/send-verification-code"
               }
             ],
             "name": "Users-service",
@@ -169,5 +184,5 @@
   ],
   "schemaVersion": 1,
   "sqlQueries": [],
-  "updatedAt": "2026-09-27T09:46:13.932Z"
+  "updatedAt": "2026-09-28T12:21:52.208Z"
 }

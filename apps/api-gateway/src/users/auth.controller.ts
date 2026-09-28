@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  ForbiddenException,
   HttpCode,
   HttpException,
   HttpStatus,
@@ -32,6 +33,7 @@ import {
 } from '@skillup/shared/interfaces';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { VerifyAccountDto } from './dto/verify-account.dto';
+import { SendVerificationCodeDto } from './dto/send-verification-code.dto';
 import { MinioService } from '../storage/minio.service';
 
 @Controller('users/auth')
@@ -276,6 +278,89 @@ export class AuthController implements OnModuleInit {
 
       if (
         grpcError.code === 5 ||
+        rawErrorMessage.toLowerCase().includes('not found')
+      ) {
+        throw new NotFoundException(rawErrorMessage);
+      }
+
+      throw new InternalServerErrorException(rawErrorMessage);
+    }
+  }
+
+  /**
+   * POST /api/v1/users/auth/send-verification-code
+   * Resends a fresh 6-digit OTP verification code with a 60-second cooldown.
+   */
+  @Post('send-verification-code')
+  @HttpCode(HttpStatus.OK)
+  async sendVerificationCode(
+    @Body() dto: SendVerificationCodeDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      const response = await firstValueFrom(
+        this.usersServiceClient.sendVerificationCode({
+          email: dto.email,
+        }),
+      );
+
+      return {
+        success: response.success,
+        message: response.message,
+      };
+    } catch (grpcError: any) {
+      this.logger.error('gRPC SendVerificationCode call failed:', grpcError);
+
+      const rawErrorMessage =
+        grpcError.details ||
+        grpcError.message ||
+        'Failed to send verification code';
+
+      // 429 Too Many Requests: 60-second cooldown active
+      if (
+        grpcError.code === 8 || // RESOURCE_EXHAUSTED
+        rawErrorMessage.toLowerCase().includes('please wait') ||
+        rawErrorMessage.toLowerCase().includes('too many') ||
+        rawErrorMessage.toLowerCase().includes('locked')
+      ) {
+        const ttlMatch = rawErrorMessage.match(/\[Retry-After:\s*(\d+)\]/);
+        const retryAfterSeconds = ttlMatch ? parseInt(ttlMatch[1], 10) : 60;
+        const cleanMessage = rawErrorMessage
+          .replace(/\s*\[Retry-After:\s*\d+\]/, '')
+          .trim();
+
+        res.setHeader('Retry-After', retryAfterSeconds.toString());
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: cleanMessage,
+            error: 'Too Many Requests',
+            retryAfter: retryAfterSeconds,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      // 400 Bad Request: Account already active / preconditions
+      if (
+        grpcError.code === 3 || // INVALID_ARGUMENT
+        grpcError.code === 9 || // FAILED_PRECONDITION
+        rawErrorMessage.toLowerCase().includes('already active')
+      ) {
+        throw new BadRequestException(rawErrorMessage);
+      }
+
+      // 403 Forbidden: Account blocked or deleted
+      if (
+        grpcError.code === 7 || // PERMISSION_DENIED
+        rawErrorMessage.toLowerCase().includes('not eligible')
+      ) {
+        throw new ForbiddenException(rawErrorMessage);
+      }
+
+      // 404 Not Found: User not found
+      if (
+        grpcError.code === 5 || // NOT_FOUND
         rawErrorMessage.toLowerCase().includes('not found')
       ) {
         throw new NotFoundException(rawErrorMessage);

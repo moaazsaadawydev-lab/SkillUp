@@ -18,6 +18,8 @@ import {
   CreateUserResponse,
   VerifyAccountRequest,
   VerifyAccountResponse,
+  SendVerificationCodeRequest,
+  ActionResponse,
 } from '@skillup/shared/interfaces';
 import { OutboxWorker } from './outbox/outbox.worker';
 
@@ -101,6 +103,8 @@ export class UsersService {
 
       // Store hashed OTP in Redis with 10 minutes TTL (600s)
       await this.redisService.setWithTtl(redisOtpKey, hashedOtp, 600);
+      // Cooldown for 60 seconds after registration
+      await this.redisService.setWithTtl(`cooldown:verify:${normalizedEmail}`, '1', 60);
       otpStoredInRedis = true;
 
       // 5. Create Transactional Outbox Events
@@ -417,6 +421,137 @@ export class UsersService {
           updatedAt: user.updatedAt.toISOString(),
         },
       },
+    };
+  }
+
+  /**
+   * Resend verification code:
+   * 1. Validates 60-second cooldown via Redis.
+   * 2. Finds user by email; ensures user exists and status is PENDING.
+   * 3. Generates fresh cryptographically secure 6-digit OTP & hashes it (SHA-256).
+   * 4. Overwrites/stores OTP in Redis with 10-minute TTL.
+   * 5. Clears previous failed attempts / rate-limit counter in Redis.
+   * 6. Sets 60-second cooldown in Redis.
+   * 7. Saves SEND_VERIFICATION_EMAIL message to Outbox within a transaction.
+   * 8. Triggers OutboxWorker.
+   */
+  async sendVerificationCode(
+    request: SendVerificationCodeRequest,
+  ): Promise<ActionResponse> {
+    const normalizedEmail = request.email.trim().toLowerCase();
+    const cooldownKey = `cooldown:verify:${normalizedEmail}`;
+    const redisOtpKey = `otp:verify:${normalizedEmail}`;
+    const rateLimitKey = `rate:verify:${normalizedEmail}`;
+    const legacyAttemptsKey = `otp:attempts:${normalizedEmail}`;
+
+    // 1. Lockout Guard: Check if verification is frozen for 15 minutes due to 7 failed attempts
+    const currentAttemptsStr = await this.redisService.get(rateLimitKey);
+    const currentAttempts = currentAttemptsStr
+      ? parseInt(currentAttemptsStr, 10)
+      : 0;
+
+    if (currentAttempts >= 7) {
+      const lockTtl = await this.redisService.ttl(rateLimitKey);
+      const remainingSeconds = lockTtl > 0 ? lockTtl : 15 * 60;
+      throw new RpcException({
+        code: status.RESOURCE_EXHAUSTED,
+        message: `Account verification is temporarily locked due to 7 failed attempts. Please wait ${remainingSeconds} seconds before requesting a new code. [Retry-After: ${remainingSeconds}]`,
+      });
+    }
+
+    // 2. Cooldown check (60 seconds between resends)
+    const cooldownTtl = await this.redisService.ttl(cooldownKey);
+    if (cooldownTtl > 0) {
+      throw new RpcException({
+        code: status.RESOURCE_EXHAUSTED,
+        message: `Please wait ${cooldownTtl} seconds before requesting a new verification code. [Retry-After: ${cooldownTtl}]`,
+      });
+    }
+
+    // 2. User lookup
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { email: normalizedEmail },
+    });
+
+    if (!user) {
+      throw new RpcException({
+        code: status.NOT_FOUND,
+        message: 'No account found with this email address.',
+      });
+    }
+
+    if (user.status === UserStatus.ACTIVE) {
+      throw new RpcException({
+        code: status.FAILED_PRECONDITION,
+        message: 'Account is already active. Please proceed to login.',
+      });
+    }
+
+    if (user.status === UserStatus.BLOCKED) {
+      throw new RpcException({
+        code: status.PERMISSION_DENIED,
+        message: 'Account is not eligible for verification.',
+      });
+    }
+
+    // 3. Generate fresh 6-digit OTP & Hash with SHA-256
+    const plainOtpCode = crypto.randomInt(100000, 1000000).toString();
+    const hashedOtp = crypto
+      .createHash('sha256')
+      .update(plainOtpCode)
+      .digest('hex');
+
+    // 4. Update Redis: overwrite OTP (10 mins), set cooldown (60s), reset failed attempts
+    await Promise.all([
+      this.redisService.setWithTtl(redisOtpKey, hashedOtp, 600),
+      this.redisService.setWithTtl(cooldownKey, '1', 60),
+      this.redisService.del(rateLimitKey),
+      this.redisService.del(legacyAttemptsKey),
+    ]);
+
+    // 5. Transactional Outbox for sending email
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const emailOutbox = queryRunner.manager.create(OutboxMessage, {
+        eventType: OUTBOX_EVENTS.SEND_VERIFICATION_EMAIL,
+        payload: {
+          email: user.email,
+          code: plainOtpCode,
+          username: user.username,
+        },
+        status: OutboxStatus.PENDING,
+        retryCount: 0,
+      });
+
+      await queryRunner.manager.save(OutboxMessage, emailOutbox);
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(
+        `Failed to create outbox event for resending verification code to ${normalizedEmail}:`,
+        error,
+      );
+      throw new RpcException({
+        code: status.INTERNAL,
+        message: 'Failed to queue verification email. Please try again.',
+      });
+    } finally {
+      await queryRunner.release();
+    }
+
+    // 6. Trigger outbox worker
+    this.outboxWorker.trigger();
+
+    this.logger.log(
+      `New verification code generated and queued for ${normalizedEmail}`,
+    );
+
+    return {
+      success: true,
+      message: 'A new verification code has been sent to your email address.',
     };
   }
 }

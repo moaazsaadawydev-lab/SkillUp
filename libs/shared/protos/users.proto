@@ -6,6 +6,7 @@ service UsersService {
   // Registration & User Creation
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
   rpc VerifyAccount (VerifyAccountRequest) returns (VerifyAccountResponse);
+  rpc SendVerificationCode (SendVerificationCodeRequest) returns (ActionResponse);
 
   // User Retrieval & Validation
   rpc FindUserById (FindUserByIdRequest) returns (UserResponse);
@@ -130,5 +131,10 @@ message VerifyAccountResponse {
   string message = 2;
   AuthData data = 3;
 }
+
+message SendVerificationCodeRequest {
+  string email = 1;
+}
+
 
 

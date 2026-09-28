@@ -126,6 +126,10 @@ export interface VerifyAccountResponse {
   data: AuthData;
 }
 
+export interface SendVerificationCodeRequest {
+  email: string;
+}
+
 // =============================================================================
 // gRPC Client & Controller Interfaces
 // =============================================================================
@@ -133,6 +137,7 @@ export interface VerifyAccountResponse {
 export interface UsersServiceClient {
   createUser(request: CreateUserRequest): Observable<CreateUserResponse>;
   verifyAccount(request: VerifyAccountRequest): Observable<VerifyAccountResponse>;
+  sendVerificationCode(request: SendVerificationCodeRequest): Observable<ActionResponse>;
   findUserById(request: FindUserByIdRequest): Observable<UserResponse>;
   validateUser(request: ValidateUserRequest): Observable<UserResponse>;
   updateProfile(request: UpdateProfileRequest): Observable<UpdateProfileResponse>;
@@ -151,6 +156,9 @@ export interface UsersServiceController {
     | Promise<VerifyAccountResponse>
     | Observable<VerifyAccountResponse>
     | VerifyAccountResponse;
+  sendVerificationCode(
+    request: SendVerificationCodeRequest,
+  ): Promise<ActionResponse> | Observable<ActionResponse> | ActionResponse;
   findUserById(
     request: FindUserByIdRequest,
   ): Promise<UserResponse> | Observable<UserResponse> | UserResponse;
