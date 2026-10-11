@@ -18,7 +18,7 @@
     "repoPath": "D:/Moaz/Programing/Projects/SkillUp"
   },
   "httpClient": {
-    "activeEnvironmentId": null,
+    "activeEnvironmentId": "",
     "collections": [
       {
         "id": "col-1791123224571-usq52",
@@ -121,7 +121,7 @@
                 "url": "{{baseURL}}/users/auth/register"
               },
               {
-                "bodyContent": "{\n  \"email\":\"moaazseadawy@gmail.com\",\n  \"code\":\"476475\"\n}",
+                "bodyContent": "{\n  \"email\":\"moaazseadawy@gmail.com\",\n  \"code\":\"743154\"\n}",
                 "bodyFormData": [],
                 "bodyType": "json",
                 "bodyUrlEncoded": [],
@@ -184,13 +184,11 @@
       "host": "127.0.0.1",
       "id": "redis-1791122481893",
       "name": "Local Redis",
-      "password": "",
       "port": 6379,
-      "ssl": false,
-      "username": ""
+      "ssl": false
     }
   ],
   "schemaVersion": 1,
   "sqlQueries": [],
-  "updatedAt": "2026-10-04T19:16:58.846Z"
+  "updatedAt": "2026-10-11T09:15:56.215Z"
 }

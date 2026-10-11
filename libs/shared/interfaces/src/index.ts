@@ -22,3 +22,4 @@ export interface IServiceResponse<T = unknown> {
 }
 
 export * from './users-grpc.interface';
+export * from './media-grpc.interface';
