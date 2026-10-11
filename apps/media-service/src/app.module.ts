@@ -4,6 +4,8 @@ import { RabbitMQModule } from '@skillup/shared/rabbitmq';
 import { StorageModule } from './storage/storage.module';
 import { ImageProcessorService } from './processors/image-processor.service';
 import { MediaConsumerService } from './consumers/media-consumer.service';
+import { MediaService } from './media.service';
+import { MediaGrpcController } from './media-grpc.controller';
 
 @Module({
   imports: [
@@ -30,7 +32,8 @@ import { MediaConsumerService } from './consumers/media-consumer.service';
     }),
     StorageModule,
   ],
-  controllers: [],
-  providers: [ImageProcessorService, MediaConsumerService],
+  controllers: [MediaGrpcController],
+  providers: [MediaService, ImageProcessorService, MediaConsumerService],
+  exports: [MediaService],
 })
 export class AppModule {}

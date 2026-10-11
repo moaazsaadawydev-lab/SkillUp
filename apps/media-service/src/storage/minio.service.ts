@@ -7,6 +7,7 @@ import { Readable } from 'stream';
 export class MinioService implements OnModuleInit {
   private readonly logger = new Logger(MinioService.name);
   private minioClient: Minio.Client;
+  private presignClient: Minio.Client;
   private readonly defaultBucket: string;
 
   constructor(private readonly configService: ConfigService) {
@@ -30,10 +31,35 @@ export class MinioService implements OnModuleInit {
       'skillhub-media',
     );
 
+    // Internal client (communicates across Docker network, e.g. minio:9000)
     this.minioClient = new Minio.Client({
       endPoint,
       port,
       useSSL,
+      accessKey,
+      secretKey,
+    });
+
+    // Public/Host client (used for generating signatures accessible by external clients, e.g. localhost:9000)
+    const publicEndPoint =
+      this.configService.get<string>('MINIO_HOST_ENDPOINT') ||
+      this.configService.get<string>('MINIO_PUBLIC_ENDPOINT') ||
+      (process.env.NODE_ENV === 'production' && endPoint === 'minio'
+        ? 'localhost'
+        : endPoint);
+    const publicPort = Number(
+      this.configService.get<number>('MINIO_PUBLIC_PORT') ||
+        this.configService.get<number>('MINIO_PORT', 9000),
+    );
+    const publicUseSSL =
+      this.configService.get<string>('MINIO_PUBLIC_USE_SSL') === 'true' ||
+      this.configService.get<boolean>('MINIO_PUBLIC_USE_SSL') === true ||
+      useSSL;
+
+    this.presignClient = new Minio.Client({
+      endPoint: publicEndPoint,
+      port: publicPort,
+      useSSL: publicUseSSL,
       accessKey,
       secretKey,
     });
@@ -106,6 +132,73 @@ export class MinioService implements OnModuleInit {
           err instanceof Error ? err.message : err
         }`,
       );
+    }
+  }
+
+  /**
+   * Generates a presigned PUT URL allowing clients to upload directly to MinIO
+   * @param key Target object key in bucket (e.g. temp_uploads/avatars/...)
+   * @param expirySeconds Expiration TTL in seconds (default: 300s = 5m)
+   * @param bucket Target bucket
+   */
+  async getPresignedUploadUrl(
+    key: string,
+    expirySeconds = 300,
+    bucket?: string,
+  ): Promise<string> {
+    const targetBucket = bucket || this.defaultBucket;
+    return this.presignClient.presignedPutObject(
+      targetBucket,
+      key,
+      expirySeconds,
+    );
+  }
+
+  /**
+   * Generates a presigned GET URL allowing clients to download private objects
+   */
+  async getPresignedGetUrl(
+    key: string,
+    expirySeconds = 3600,
+    bucket?: string,
+  ): Promise<string> {
+    const targetBucket = bucket || this.defaultBucket;
+    return this.presignClient.presignedGetObject(
+      targetBucket,
+      key,
+      expirySeconds,
+    );
+  }
+
+  /**
+   * Checks whether an object exists in MinIO and returns its metadata
+   */
+  async checkFileExists(
+    key: string,
+    bucket?: string,
+  ): Promise<{ exists: boolean; size?: number; contentType?: string }> {
+    const targetBucket = bucket || this.defaultBucket;
+    try {
+      const stat = await this.minioClient.statObject(targetBucket, key);
+      return {
+        exists: true,
+        size: stat.size,
+        contentType:
+          stat.metaData?.['content-type'] || 'application/octet-stream',
+      };
+    } catch (err: unknown) {
+      const anyErr = err as { code?: string; message?: string };
+      if (
+        anyErr?.code === 'NotFound' ||
+        anyErr?.code === 'NoSuchKey' ||
+        anyErr?.message?.includes('Not Found')
+      ) {
+        return { exists: false };
+      }
+      this.logger.warn(
+        `Error checking file existence for "${key}": ${anyErr?.message || err}`,
+      );
+      return { exists: false };
     }
   }
 

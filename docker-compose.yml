@@ -311,6 +311,7 @@ services:
       RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
       RABBITMQ_MEDIA_QUEUE: media_queue
       MINIO_ENDPOINT: minio
+      MINIO_HOST_ENDPOINT: ${MINIO_HOST_ENDPOINT:-localhost}
       MINIO_PORT: 9000
       MINIO_USE_SSL: "false"
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}

@@ -2,6 +2,8 @@ import { LogLevel, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { join } from 'path';
+import { existsSync } from 'fs';
+import { MEDIA_PACKAGE_NAME } from '@skillup/shared/interfaces';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -15,12 +17,20 @@ async function bootstrap() {
   const grpcPort = process.env.MEDIA_SERVICE_GRPC_PORT || '50056';
   const httpPort = process.env.MEDIA_SERVICE_HTTP_PORT || '3006';
 
+  // Locate proto file with multiple fallback paths
+  const protoPath = [
+    join(process.cwd(), 'libs/shared/src/proto/media.proto'),
+    join(process.cwd(), 'libs/shared/protos/media.proto'),
+    join(__dirname, '../../../libs/shared/src/proto/media.proto'),
+    join(__dirname, '../../../libs/shared/protos/media.proto'),
+  ].find((path) => existsSync(path)) || join(process.cwd(), 'libs/shared/protos/media.proto');
+
   // Connect gRPC Microservice
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.GRPC,
     options: {
-      package: 'media',
-      protoPath: join(process.cwd(), 'libs/shared/protos/media.proto'),
+      package: MEDIA_PACKAGE_NAME,
+      protoPath,
       url: `0.0.0.0:${grpcPort}`,
     },
   });
@@ -32,6 +42,7 @@ async function bootstrap() {
 
   Logger.log(`🚀 Media Service HTTP running on port ${httpPort}`);
   Logger.log(`⚡ Media Service gRPC listening on port ${grpcPort}`);
+  Logger.log(`📄 Using Proto definition from: ${protoPath}`);
 }
 
 bootstrap();
