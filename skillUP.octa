@@ -153,6 +153,50 @@
             ],
             "name": "Users",
             "type": "folder"
+          },
+          {
+            "id": "folder-1791145000000-media",
+            "isOpen": true,
+            "items": [
+              {
+                "bodyContent": "{\n  \"filename\": \"avatar.png\",\n  \"contentType\": \"image/png\",\n  \"fileSize\": 1048576,\n  \"category\": \"AVATAR\"\n}",
+                "bodyFormData": [],
+                "bodyType": "json",
+                "bodyUrlEncoded": [],
+                "disabledAutoHeaders": [],
+                "headers": [],
+                "id": "req-1791145100000-uplod",
+                "isDirty": false,
+                "method": "POST",
+                "name": "Get Avatar Upload URL",
+                "params": [],
+                "type": "request",
+                "url": "{{baseURL}}/media/avatar/upload-url"
+              },
+              {
+                "bodyContent": "",
+                "bodyFormData": [],
+                "bodyType": "none",
+                "bodyUrlEncoded": [],
+                "disabledAutoHeaders": [],
+                "headers": [],
+                "id": "req-1791145200000-chkfl",
+                "isDirty": false,
+                "method": "GET",
+                "name": "Check File Exists",
+                "params": [
+                  {
+                    "enabled": true,
+                    "key": "key",
+                    "value": "temp_uploads/avatars/example.png"
+                  }
+                ],
+                "type": "request",
+                "url": "{{baseURL}}/media/check-file?key=temp_uploads/avatars/example.png"
+              }
+            ],
+            "name": "Media",
+            "type": "folder"
           }
         ],
         "name": "Skillup",
@@ -190,5 +234,5 @@
   ],
   "schemaVersion": 1,
   "sqlQueries": [],
-  "updatedAt": "2026-10-11T09:15:56.215Z"
+  "updatedAt": "2026-10-11T10:33:57.975Z"
 }
