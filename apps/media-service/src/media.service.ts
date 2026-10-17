@@ -129,7 +129,10 @@ export class MediaService {
       );
       return {
         success: false,
-        message: 'Failed to generate presigned upload URL.',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to generate presigned upload URL.',
         uploadUrl: '',
         upload_url: '',
         fileKey: '',

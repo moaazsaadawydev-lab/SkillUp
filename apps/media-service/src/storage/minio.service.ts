@@ -31,6 +31,9 @@ export class MinioService implements OnModuleInit {
       'skillhub-media',
     );
 
+    const region =
+      this.configService.get<string>('MINIO_REGION') || 'us-east-1';
+
     // Internal client (communicates across Docker network, e.g. minio:9000)
     this.minioClient = new Minio.Client({
       endPoint,
@@ -38,6 +41,7 @@ export class MinioService implements OnModuleInit {
       useSSL,
       accessKey,
       secretKey,
+      region,
     });
 
     // Public/Host client (used for generating signatures accessible by external clients, e.g. localhost:9000)
@@ -62,6 +66,7 @@ export class MinioService implements OnModuleInit {
       useSSL: publicUseSSL,
       accessKey,
       secretKey,
+      region,
     });
   }
 
@@ -76,6 +81,7 @@ export class MinioService implements OnModuleInit {
       }
 
       await this.ensurePublicReadPolicy();
+      await this.ensureLifecyclePolicy();
     } catch (error) {
       this.logger.warn(
         `Could not verify/create MinIO bucket "${this.defaultBucket}": ${
@@ -105,7 +111,7 @@ export class MinioService implements OnModuleInit {
           Resource: [`arn:aws:s3:::${this.defaultBucket}`],
           Condition: {
             StringEquals: {
-              's3:prefix': ['profile_photos'],
+              's3:prefix': ['profile_photos', 'avatars'],
             },
           },
         },
@@ -113,7 +119,10 @@ export class MinioService implements OnModuleInit {
           Effect: 'Allow',
           Principal: { AWS: ['*'] },
           Action: ['s3:GetObject'],
-          Resource: [`arn:aws:s3:::${this.defaultBucket}/profile_photos*`],
+          Resource: [
+            `arn:aws:s3:::${this.defaultBucket}/profile_photos*`,
+            `arn:aws:s3:::${this.defaultBucket}/avatars*`,
+          ],
         },
       ],
     };
@@ -129,6 +138,39 @@ export class MinioService implements OnModuleInit {
     } catch (err) {
       this.logger.warn(
         `Failed to set bucket policy on "${this.defaultBucket}": ${
+          err instanceof Error ? err.message : err
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Applies an automated ILM lifecycle rule to automatically expire and delete
+   * temporary unconfirmed uploads after 1 day (24 hours).
+   */
+  private async ensureLifecyclePolicy(): Promise<void> {
+    const lifecycleConfig: Minio.LifecycleConfig = {
+      Rule: [
+        {
+          ID: 'ExpireTempUploadsAfter1Day',
+          Status: 'Enabled',
+          Filter: { Prefix: 'temp_uploads/' },
+          Expiration: { Days: 1 },
+        },
+      ],
+    };
+
+    try {
+      await this.minioClient.setBucketLifecycle(
+        this.defaultBucket,
+        lifecycleConfig,
+      );
+      this.logger.debug(
+        `Applied ILM lifecycle policy on "${this.defaultBucket}/temp_uploads/*" (expire after 1 day)`,
+      );
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Failed to set bucket lifecycle on "${this.defaultBucket}": ${
           err instanceof Error ? err.message : err
         }`,
       );

@@ -32,7 +32,7 @@ export class ImageProcessorService {
 
       let pipeline = image;
 
-      // Apply rotation if requested
+      // Apply rotation if requested, or auto-orient smartphone EXIF tag
       if (transformations?.rotate) {
         pipeline = pipeline.rotate(transformations.rotate);
 
@@ -40,6 +40,9 @@ export class ImageProcessorService {
         if (Math.abs(transformations.rotate) % 180 !== 0) {
           [imgWidth, imgHeight] = [imgHeight, imgWidth];
         }
+      } else {
+        // Automatically orient image based on mobile camera EXIF orientation tag
+        pipeline = pipeline.rotate();
       }
 
       const cropX = transformations?.cropX ?? transformations?.crop_x;
@@ -62,34 +65,30 @@ export class ImageProcessorService {
 
         if (width > 0 && height > 0) {
           pipeline = pipeline.extract({ left, top, width, height });
+          pipeline = pipeline.resize(500, 500);
           this.logger.debug(
             `[CASE A] Applied explicit crop: left=${left}, top=${top}, width=${width}, height=${height} (image dimensions: ${imgWidth}x${imgHeight})`,
           );
         } else {
-          // If clamped area resulted in zero, fallback to center square crop
-          const minDimension = Math.min(imgWidth, imgHeight);
-          pipeline = pipeline.resize(minDimension, minDimension, {
+          // If clamped area resulted in zero, fallback to smart attention crop
+          pipeline = pipeline.resize(500, 500, {
             fit: 'cover',
-            position: 'center',
+            position: sharp.strategy.attention,
           });
           this.logger.debug(
-            `[CASE A Fallback] Crop clamping resulted in zero dimensions; applied center square crop: ${minDimension}x${minDimension}`,
+            `[CASE A Fallback] Crop clamping resulted in zero dimensions; applied smart attention crop (500x500)`,
           );
         }
       } else {
-        // CASE B: Fallback - Safe Center Square Crop if no coordinates provided
-        const minDimension = Math.min(imgWidth, imgHeight);
-        pipeline = pipeline.resize(minDimension, minDimension, {
+        // CASE B: Smart automatic crop focusing on face/skin tones or center
+        pipeline = pipeline.resize(500, 500, {
           fit: 'cover',
-          position: 'center',
+          position: sharp.strategy.attention,
         });
         this.logger.debug(
-          `[CASE B Fallback] No crop coordinates provided; applied safe center square crop: ${minDimension}x${minDimension}`,
+          `[CASE B Smart Crop] No crop coordinates provided; applied smart attention crop (500x500)`,
         );
       }
-
-      // Standardize final avatar to 500x500
-      pipeline = pipeline.resize(500, 500);
 
       // Apply Circular SVG Mask and convert to WebP
       const finalBuffer = await pipeline

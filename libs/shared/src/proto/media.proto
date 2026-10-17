@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package media;
+
+service MediaService {
+  // Presigned URL generation for client direct uploads
+  rpc GetPresignedUploadUrl (PresignedUploadUrlRequest) returns (PresignedUploadUrlResponse);
+
+  // File management
+  rpc GetFileUrl (GetFileUrlRequest) returns (FileUrlResponse);
+  rpc CheckFileExists (CheckFileExistsRequest) returns (CheckFileExistsResponse);
+  rpc DeleteFile (DeleteFileRequest) returns (DeleteFileResponse);
+}
+
+// -----------------------------------------------------------------------------
+// Request & Response Messages
+// -----------------------------------------------------------------------------
+
+message PresignedUploadUrlRequest {
+  string filename = 1;
+  string content_type = 2;
+  int64 file_size = 3;
+  string category = 4;
+  optional string user_id = 5;
+}
+
+message PresignedUploadUrlResponse {
+  bool success = 1;
+  string message = 2;
+  string upload_url = 3;
+  string file_key = 4;
+  int32 expires_in = 5;
+}
+
+message GetFileUrlRequest {
+  string file_key = 1;
+}
+
+message FileUrlResponse {
+  string url = 1;
+  int64 expires_in = 2;
+}
+
+message CheckFileExistsRequest {
+  string file_key = 1;
+  optional string bucket = 2;
+}
+
+message CheckFileExistsResponse {
+  bool exists = 1;
+  int64 file_size = 2;
+  string content_type = 3;
+}
+
+message DeleteFileRequest {
+  string file_key = 1;
+  optional string bucket = 2;
+}
+
+message DeleteFileResponse {
+  bool success = 1;
+  string message = 2;
+}

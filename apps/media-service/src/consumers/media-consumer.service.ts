@@ -129,15 +129,17 @@ export class MediaConsumerService implements OnModuleInit, OnModuleDestroy {
   async handlePhotoProcess(payload: ProcessProfilePhotoPayload): Promise<void> {
     const { userId, tempKey, targetKey, transformations } = payload;
 
-    if (!tempKey || !targetKey) {
+    if (!tempKey) {
       this.logger.warn(
-        `Invalid payload received, missing tempKey or targetKey: ${JSON.stringify(payload)}`,
+        `Invalid payload received, missing tempKey: ${JSON.stringify(payload)}`,
       );
       return;
     }
 
+    const finalTargetKey = targetKey || `avatars/${userId}/avatar.webp`;
+
     this.logger.log(
-      `Starting avatar processing for user ${userId}: from "${tempKey}" to "${targetKey}"`,
+      `Starting avatar processing for user ${userId}: from "${tempKey}" to "${finalTargetKey}"`,
     );
 
     // 1. Download raw image from MinIO
@@ -155,16 +157,16 @@ export class MediaConsumerService implements OnModuleInit, OnModuleDestroy {
       `Processed avatar for user ${userId} (${processedBuffer.length} bytes)`,
     );
 
-    // 3. Upload processed WebP image to target key
-    await this.minioService.putObject(targetKey, processedBuffer, 'image/webp');
+    // 3. Upload processed WebP image to target key in main avatars directory
+    await this.minioService.putObject(finalTargetKey, processedBuffer, 'image/webp');
     this.logger.log(
-      `Uploaded processed avatar to permanent location: "${targetKey}"`,
+      `Uploaded processed avatar to permanent location: "${finalTargetKey}"`,
     );
 
-    // 4. Delete temporary raw file from MinIO
+    // 4. Delete temporary raw file from MinIO completely
     try {
       await this.minioService.deleteObject(tempKey);
-      this.logger.debug(`Deleted temporary avatar file: "${tempKey}"`);
+      this.logger.log(`Purged temporary avatar file from storage: "${tempKey}"`);
     } catch (delError) {
       this.logger.warn(
         `Failed to delete temporary file "${tempKey}": ${

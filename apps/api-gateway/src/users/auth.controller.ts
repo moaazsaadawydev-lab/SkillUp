@@ -15,18 +15,16 @@ import {
   Post,
   Req,
   Res,
-  UploadedFile,
-  UseInterceptors,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { ClientGrpc } from '@nestjs/microservices';
-import 'multer';
 import { firstValueFrom } from 'rxjs';
 import { randomUUID } from 'crypto';
 import {
   USERS_SERVICE_NAME,
   UsersServiceClient,
+  MEDIA_SERVICE_NAME,
+  MediaServiceClient,
   CreateUserRequest,
   CreateUserResponse,
   VerifyAccountResponse,
@@ -34,120 +32,96 @@ import {
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { VerifyAccountDto } from './dto/verify-account.dto';
 import { SendVerificationCodeDto } from './dto/send-verification-code.dto';
-import { MinioService } from '../storage/minio.service';
 
 @Controller('users/auth')
 export class AuthController implements OnModuleInit {
   private readonly logger = new Logger(AuthController.name);
   private usersServiceClient: UsersServiceClient;
+  private mediaServiceClient: MediaServiceClient;
 
   constructor(
-    @Inject(USERS_SERVICE_NAME) private readonly grpcClient: ClientGrpc,
-    private readonly minioService: MinioService,
+    @Inject(USERS_SERVICE_NAME) private readonly usersGrpcClient: ClientGrpc,
+    @Inject(MEDIA_SERVICE_NAME) private readonly mediaGrpcClient: ClientGrpc,
   ) {}
 
   onModuleInit() {
     this.usersServiceClient =
-      this.grpcClient.getService<UsersServiceClient>(USERS_SERVICE_NAME);
+      this.usersGrpcClient.getService<UsersServiceClient>(USERS_SERVICE_NAME);
+    this.mediaServiceClient =
+      this.mediaGrpcClient.getService<MediaServiceClient>(MEDIA_SERVICE_NAME);
   }
 
   /**
    * POST /api/v1/users/auth/register
-   * Handles user registration with multipart/form-data support for profile avatar.
+   * Pure JSON registration endpoint supporting direct-to-storage avatar ingestion via tempPhotoKey.
    */
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileInterceptor('avatar', {
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB limit
-      },
-    }),
-  )
   async register(
     @Body() dto: RegisterRequestDto,
-    @UploadedFile() avatar?: Express.Multer.File,
   ): Promise<CreateUserResponse> {
     const userId = randomUUID();
-    let tempKey: string | undefined;
+    const tempKey = dto.tempPhotoKey || dto.temp_photo_key;
     let targetKey: string | undefined;
 
-    const cropX = dto.crop_x ?? dto.cropX;
-    const cropY = dto.crop_y ?? dto.cropY;
-    const cropWidth = dto.crop_width ?? dto.cropWidth;
-    const cropHeight = dto.crop_height ?? dto.cropHeight;
-    const rotate = dto.rotate ?? 0;
-    const scale = dto.scale ?? dto.zoom ?? 1;
-
-    // 1. Strict validation: If avatar is uploaded, all crop dimensions are mandatory
-    if (avatar) {
-      if (
-        cropX === undefined ||
-        cropX === null ||
-        cropY === undefined ||
-        cropY === null ||
-        cropWidth === undefined ||
-        cropWidth === null ||
-        cropHeight === undefined ||
-        cropHeight === null ||
-        isNaN(cropX) ||
-        isNaN(cropY) ||
-        isNaN(cropWidth) ||
-        isNaN(cropHeight) ||
-        cropX < 0 ||
-        cropY < 0 ||
-        cropWidth <= 0 ||
-        cropHeight <= 0
-      ) {
-        throw new BadRequestException(
-          'Crop metadata (crop_x, crop_y, crop_width, crop_height) is required when an avatar image is uploaded',
-        );
-      }
-
-      // Store raw buffer in MinIO under temporary key
+    // 1. If tempPhotoKey is provided, verify file existence & configure destination path
+    if (tempKey) {
       try {
-        const uploadResult = await this.minioService.uploadTempFile(avatar);
-        tempKey = uploadResult.tempKey;
-
-        // Pre-determined destination path (Deterministic Storage Pattern)
-        targetKey = `profile_photos/${userId}/avatar.webp`;
-
-        this.logger.debug(
-          `Determined avatar storage paths: temp=${tempKey}, target=${targetKey}`,
+        const fileCheck = await firstValueFrom(
+          this.mediaServiceClient.checkFileExists({ fileKey: tempKey }),
         );
-      } catch (uploadError) {
-        this.logger.error('Failed to upload avatar to MinIO:', uploadError);
-        throw new InternalServerErrorException(
-          'Failed to upload avatar image. Please try again.',
+
+        if (!fileCheck.exists) {
+          throw new BadRequestException(
+            `Avatar file at "${tempKey}" does not exist in storage or has expired. Please upload your avatar again.`,
+          );
+        }
+      } catch (checkError: any) {
+        if (checkError instanceof HttpException) {
+          throw checkError;
+        }
+        this.logger.warn(
+          `Could not verify temp avatar existence for ${tempKey}:`,
+          checkError,
         );
       }
+
+      // Pre-determined destination path in main avatars directory: avatars/{userId}/avatar.webp
+      targetKey = `avatars/${userId}/avatar.webp`;
+      this.logger.debug(
+        `Determined avatar storage paths: temp=${tempKey}, target=${targetKey}`,
+      );
     }
 
-    const transformations = avatar
+    // 2. Build transformations object if avatar was uploaded
+    const transformations = tempKey
       ? {
-          cropX,
-          cropY,
-          cropWidth,
-          cropHeight,
-          crop_x: cropX,
-          crop_y: cropY,
-          crop_width: cropWidth,
-          crop_height: cropHeight,
-          rotate,
-          scale,
-          zoom: scale,
+          cropX: dto.cropX ?? dto.crop_x ?? 0,
+          cropY: dto.cropY ?? dto.crop_y ?? 0,
+          cropWidth: dto.cropWidth ?? dto.crop_width,
+          cropHeight: dto.cropHeight ?? dto.crop_height,
+          crop_x: dto.cropX ?? dto.crop_x ?? 0,
+          crop_y: dto.cropY ?? dto.crop_y ?? 0,
+          crop_width: dto.cropWidth ?? dto.crop_width,
+          crop_height: dto.cropHeight ?? dto.crop_height,
+          rotate: dto.rotate ?? 0,
+          scale: dto.scale ?? dto.zoom ?? 1,
+          zoom: dto.scale ?? dto.zoom ?? 1,
         }
       : undefined;
 
-    // 2. Invoke users-service over gRPC
+    // 3. Invoke users-service over gRPC
     const createPayload: CreateUserRequest = {
       id: userId,
       username: dto.username,
       email: dto.email,
       password: dto.password,
-      birthDate: dto.birth_date || dto.birthDate,
+      birthDate: dto.birthDate || dto.birth_date,
+      birth_date: dto.birthDate || dto.birth_date,
       profilePhoto: targetKey,
+      profile_photo: targetKey,
       tempPhotoKey: tempKey,
+      temp_photo_key: tempKey,
       transformations,
     };
 
@@ -199,29 +173,30 @@ export class AuthController implements OnModuleInit {
       req.ip ||
       req.socket?.remoteAddress ||
       '127.0.0.1';
-
-    const userAgent = req.headers['user-agent'] || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'Unknown-Device';
 
     try {
-      const response = await firstValueFrom(
+      const response: VerifyAccountResponse = await firstValueFrom(
         this.usersServiceClient.verifyAccount({
           email: dto.email,
           code: dto.code,
           ipAddress,
+          ip_address: ipAddress,
           userAgent,
+          user_agent: userAgent,
         }),
       );
 
+      // Set HttpOnly refresh token cookie on successful verification
       const refreshToken =
         response.data?.refreshToken || response.data?.refresh_token;
-
       if (refreshToken) {
-        res.cookie('refreshToken', refreshToken, {
+        res.cookie('refresh_token', refreshToken, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          path: '/api/v1/users/auth', // Scoped to auth endpoints (refresh, logout)
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+          path: '/api/v1/users/auth',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
       }
 
@@ -268,16 +243,17 @@ export class AuthController implements OnModuleInit {
       if (
         grpcError.code === 3 || // INVALID_ARGUMENT
         grpcError.code === 9 || // FAILED_PRECONDITION
-        rawErrorMessage.toLowerCase().includes('already active') ||
-        rawErrorMessage.toLowerCase().includes('expired') ||
         rawErrorMessage.toLowerCase().includes('invalid') ||
-        rawErrorMessage.toLowerCase().includes('attempts remaining')
+        rawErrorMessage.toLowerCase().includes('attempts remaining') ||
+        rawErrorMessage.toLowerCase().includes('expired') ||
+        rawErrorMessage.toLowerCase().includes('already active')
       ) {
         throw new BadRequestException(rawErrorMessage);
       }
 
+      // 404 Not Found: User record not found
       if (
-        grpcError.code === 5 ||
+        grpcError.code === 5 || // NOT_FOUND
         rawErrorMessage.toLowerCase().includes('not found')
       ) {
         throw new NotFoundException(rawErrorMessage);
@@ -289,7 +265,7 @@ export class AuthController implements OnModuleInit {
 
   /**
    * POST /api/v1/users/auth/send-verification-code
-   * Resends a fresh 6-digit OTP verification code with a 60-second cooldown.
+   * Re-issues a fresh 6-digit OTP code subject to a 60-second cooldown timer.
    */
   @Post('send-verification-code')
   @HttpCode(HttpStatus.OK)

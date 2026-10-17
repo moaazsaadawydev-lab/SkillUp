@@ -51,7 +51,6 @@ export class UsersService {
     const normalizedEmail = request.email.trim().toLowerCase();
     const normalizedUsername = request.username.trim();
     const birthDate = request.birthDate || request.birth_date || null;
-    const profilePhoto = request.profilePhoto || request.profile_photo || null;
     const tempPhotoKey = request.tempPhotoKey || request.temp_photo_key || null;
 
     let otpStoredInRedis = false;
@@ -81,6 +80,11 @@ export class UsersService {
 
       // 3. Create User entity
       const userId = request.id || crypto.randomUUID();
+      const profilePhoto =
+        request.profilePhoto ||
+        request.profile_photo ||
+        (tempPhotoKey ? `avatars/${userId}/avatar.webp` : null);
+
       const user = queryRunner.manager.create(User, {
         id: userId,
         username: normalizedUsername,

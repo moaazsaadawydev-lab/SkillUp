@@ -7,12 +7,12 @@ import {
   USERS_PACKAGE_NAME,
   USERS_SERVICE_NAME,
 } from '@skillup/shared/interfaces';
-import { StorageModule } from '../storage/storage.module';
+import { MediaModule } from '../media/media.module';
 import { AuthController } from './auth.controller';
 
 @Module({
   imports: [
-    StorageModule,
+    MediaModule,
     ClientsModule.registerAsync([
       {
         name: USERS_SERVICE_NAME,
@@ -22,7 +22,8 @@ import { AuthController } from './auth.controller';
             join(process.cwd(), 'libs/shared/protos/users.proto'),
             join(process.cwd(), 'libs/shared/src/proto/users.proto'),
             join(__dirname, '../../../../libs/shared/protos/users.proto'),
-          ].find((p) => existsSync(p)) || join(process.cwd(), 'libs/shared/protos/users.proto');
+          ].find((p) => existsSync(p)) ||
+            join(process.cwd(), 'libs/shared/protos/users.proto');
 
           const grpcUrl =
             config.get<string>('USERS_SERVICE_GRPC_URL') ||
