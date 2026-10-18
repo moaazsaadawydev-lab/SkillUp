@@ -3,6 +3,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DatabaseModule } from './database/database.module';
 import { UsersGrpcController } from './users-grpc.controller';
 import { UsersService } from './users.service';
+import {
+  RegisterProvider,
+  VerifyAccountProvider,
+  VerificationCodeProvider,
+  UserQueryProvider,
+  PasswordManagementProvider,
+} from './providers';
 import { OutboxModule } from './outbox/outbox.module';
 import { RedisModule } from '@skillup/shared/redis';
 import { RabbitMQModule } from '@skillup/shared/rabbitmq';
@@ -39,6 +46,13 @@ import { RabbitMQModule } from '@skillup/shared/rabbitmq';
     OutboxModule,
   ],
   controllers: [UsersGrpcController],
-  providers: [UsersService],
+  providers: [
+    UsersService,
+    RegisterProvider,
+    VerifyAccountProvider,
+    VerificationCodeProvider,
+    UserQueryProvider,
+    PasswordManagementProvider,
+  ],
 })
 export class AppModule {}

@@ -8,6 +8,8 @@ import {
   MEDIA_SERVICE_NAME,
 } from '@skillup/shared/interfaces';
 import { MediaController } from './media.controller';
+import { MediaService } from './media.service';
+import { UploadUrlProvider, FileQueryProvider } from './providers';
 
 @Module({
   imports: [
@@ -40,6 +42,7 @@ import { MediaController } from './media.controller';
     ]),
   ],
   controllers: [MediaController],
-  exports: [ClientsModule],
+  providers: [MediaService, UploadUrlProvider, FileQueryProvider],
+  exports: [ClientsModule, MediaService, UploadUrlProvider, FileQueryProvider],
 })
 export class MediaModule {}

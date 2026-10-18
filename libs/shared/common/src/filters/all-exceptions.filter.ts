@@ -31,12 +31,31 @@ export class AllExceptionsFilter implements ExceptionFilter {
       `[${request?.method || 'UNKNOWN'}] ${request?.url || ''} - Status: ${status} - Error: ${JSON.stringify(message)}`,
     );
 
+    const retryAfter =
+      exception instanceof HttpException &&
+      typeof message === 'object' &&
+      message !== null &&
+      (message as Record<string, unknown>)['retryAfter'] !== undefined
+        ? (message as Record<string, unknown>)['retryAfter']
+        : undefined;
+
+    if (retryAfter && response && typeof response.setHeader === 'function') {
+      response.setHeader('Retry-After', retryAfter.toString());
+    }
+
     if (response && typeof response.status === 'function') {
       response.status(status).json({
         success: false,
         statusCode: status,
-        message: typeof message === 'object' ? (message as Record<string, unknown>)['message'] || message : message,
-        error: typeof message === 'object' ? (message as Record<string, unknown>)['error'] || null : null,
+        message:
+          typeof message === 'object' && message !== null
+            ? (message as Record<string, unknown>)['message'] || message
+            : message,
+        error:
+          typeof message === 'object' && message !== null
+            ? (message as Record<string, unknown>)['error'] || null
+            : null,
+        ...(retryAfter !== undefined ? { retryAfter } : {}),
         timestamp: new Date().toISOString(),
         path: request?.url,
       });

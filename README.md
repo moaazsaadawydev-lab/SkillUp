@@ -1,6 +1,6 @@
 # 🚀 SkillUp (SkillHub) — Cloud-Native Microservices Platform
 
-**SkillUp** is an enterprise-grade, high-performance educational platform architected as a distributed microservices system inside an **Nx Monorepo** powered by **NestJS** and **TypeScript**. Designed from the ground up for extreme **scalability**, fault tolerance, and hardened security, the platform adheres to modern distributed systems design principles including **gRPC inter-service communication**, **Event-Driven Architecture (EDA)**, **Transactional Outbox Pattern**, **Direct-to-Storage Upload Pattern (Presigned URLs)**, and **Database-per-Service**.
+**SkillUp** is an enterprise-grade, high-performance educational platform architected as a distributed microservices system inside an **Nx Monorepo** powered by **NestJS** and **TypeScript**. Designed from the ground up for extreme **scalability**, fault tolerance, and hardened security, the platform adheres to modern distributed systems design principles including **gRPC inter-service communication**, **Event-Driven Architecture (EDA)**, **Transactional Outbox Pattern**, **Direct-to-Storage Upload Pattern (Presigned URLs)**, **Edge IP-based Rate Limiting**, and **Database-per-Service**.
 
 ---
 
@@ -20,11 +20,11 @@
 ## 1. System Architecture
 
 The system decouples edge networking, core business logic, asynchronous background tasks, and high-speed in-memory state:
-- **API Gateway:** The single entrypoint handling edge HTTP/REST traffic, cookie management, pure JSON request validation, and internal gRPC routing. Zero file buffers pass through the gateway.
+- **API Gateway:** The single public entrypoint handling edge HTTP/REST traffic, cookie management, pure JSON request validation, Edge IP-based Rate Limiting via Redis, and internal gRPC routing. Zero file buffers pass through the gateway.
 - **Internal Services:** Inter-service communication is powered by **gRPC over HTTP/2 with Protocol Buffers**, minimizing network serialization overhead and latency.
 - **Direct-to-Storage Ingestion:** Clients upload heavy multimedia directly to **MinIO (S3)** via short-lived, cryptographically signed **Presigned URLs**, offloading heavy I/O and RAM consumption from application servers.
 - **Asynchronous Event Pipeline:** Long-running, compute-heavy, and network I/O operations (image smart cropping/resizing and email dispatch) are completely decoupled through **RabbitMQ** and the **Transactional Outbox Pattern**.
-- **In-Memory Cache & Session Layer:** **Redis** handles ephemeral state: cryptographic OTP hashes, rate limiters, abuse prevention locks, and active multi-device sessions.
+- **In-Memory Cache & Security Layer:** **Redis** handles ephemeral state: cryptographic OTP hashes, atomic IP rate limiters, abuse prevention locks, and active multi-device sessions.
 
 ```mermaid
 flowchart TB
@@ -34,11 +34,11 @@ flowchart TB
     end
 
     subgraph GatewayLayer ["Edge API Gateway (Port 3000)"]
-        Gateway["NestJS API Gateway<br/>REST • Pure JSON • ValidationPipes • CookieParser"]
+        Gateway["NestJS API Gateway<br/>REST • Pure JSON • Rate Limiting (Redis) • CookieParser"]
     end
 
     subgraph ServiceLayer ["Microservices Ecosystem (gRPC & HTTP)"]
-        UsersSvc["Users Service (:3001 / :50051)<br/>Identity, Auth & Outbox Engine"]
+        UsersSvc["Users Service (:3001 / :50051)<br/>Providers Architecture • Outbox Engine"]
         MediaSvc["Media Service (:3006 / :50056)<br/>Presigned URLs • Sharp Smart Image Processing"]
         NotifSvc["Notifications Service (:3005 / :50055)<br/>Nodemailer & Handlebars Dispatcher"]
         CatalogSvc["Catalog Service (:3002)<br/>Courses & Curriculum (Scaffold)"]
@@ -52,7 +52,7 @@ flowchart TB
 
     subgraph DataLayer ["Persistence & State Layer"]
         Postgres[("PostgreSQL 16 (Port 5433)<br/>Database-per-Service: users, catalog, booking, payment")]
-        Redis[("Redis 7 (Port 6379)<br/>Sessions • OTP Hashes • Lockout Counters")]
+        Redis[("Redis 7 (Port 6379)<br/>Sessions • OTP Hashes • Lockout Counters • IP Rate Limits")]
         MinIO[("MinIO Object Storage (Port 9000 / 9001)<br/>S3-Compatible Bucket: skillhub-media")]
     end
 
@@ -90,8 +90,8 @@ flowchart TB
 ### A. Application Services
 | Service | Stack & Protocols | Responsibilities | Current Status |
 | :--- | :--- | :--- | :---: |
-| **API Gateway** | NestJS, Express, gRPC Client, Class-Validator | Public REST API, global exception filters, strict JSON validation pipes, cookie parsing, gRPC client dispatch. Zero Multer/buffer dependencies. | **Active & Production-Ready** |
-| **Users Service** | NestJS, TypeORM, gRPC Server, Redis | User identity lifecycle, bcrypt hashing, dual-token generation, multi-device session management, Transactional Outbox engine. | **Active & Production-Ready** |
+| **API Gateway** | NestJS, Express, gRPC Client, Redis, Class-Validator | Public REST API, Edge IP Rate Limiting Guard, global exception filters, strict JSON validation pipes, cookie parsing, gRPC client dispatch. Zero Multer/buffer dependencies. | **Active & Production-Ready** |
+| **Users Service** | NestJS, TypeORM, gRPC Server, Redis, Modular Providers | Decomposed domain providers architecture, user identity lifecycle, bcrypt hashing, dual-token generation, multi-device session management, Transactional Outbox engine. | **Active & Production-Ready** |
 | **Media Service** | NestJS, gRPC Server, Sharp, MinIO S3 SDK, RabbitMQ | Dual interface: **gRPC** for presigned URLs & file verification; **RabbitMQ Consumer** for asynchronous image smart-cropping, WebP optimization, and temp file purges. | **Active & Production-Ready** |
 | **Notifications Service** | NestJS, Nodemailer, Handlebars, RabbitMQ | Consumes email events, compiles Handlebars email templates, handles SMTP dispatch with retry logic. | **Active & Production-Ready** |
 | **Catalog Service** | NestJS, gRPC | Educational course catalog, lessons, curriculum structure, search index. | Skeleton Scaffold |
@@ -100,7 +100,7 @@ flowchart TB
 
 ### B. Backing Infrastructure
 - **PostgreSQL 16 (Alpine):** Isolated databases per service: `skillhub_users`, `skillhub_catalog`, `skillhub_booking`, `skillhub_payment`.
-- **Redis 7 (Alpine):** In-memory session hashes, token revocation, OTP cryptographic hashes, rate limiting, and 15-minute lockouts.
+- **Redis 7 (Alpine):** In-memory session hashes, token revocation, OTP cryptographic hashes, atomic IP rate limiting counters, and 15-minute lockouts.
 - **RabbitMQ 3 (Management Alpine):** Reliable AMQP topic exchange (`skillhub.events`) with durable queues and acknowledgments.
 - **MinIO Object Storage:** Self-hosted S3-compatible storage cluster with public read policy for published media (`avatars/*`), private staging (`temp_uploads/*`), and automated ILM lifecycle auto-expiration.
 
@@ -108,12 +108,40 @@ flowchart TB
 
 ## 3. Architectural Design Patterns
 
-### 1. Transactional Outbox Pattern
+### 1. Modular Providers Architecture & Facade Pattern
+* **The Problem:** As microservices grow, putting dozens of endpoint implementations inside a single monolithic service file (`*.service.ts`) creates massive code clutter, violates the Single Responsibility Principle (SRP), and complicates code navigation, testing, and team collaboration.
+* **The Solution:**
+  1. Every microservice domain decomposes its business logic into specialized, single-purpose **Providers** inside a `providers/` directory categorized by endpoint function.
+  2. The parent `*.service.ts` acts as a clean, lightweight **Facade**, delegating incoming requests to the responsible Provider without breaking existing interfaces or controller bindings.
+  3. Controllers remain ultra-thin routing layers handling only HTTP transport, cookies, and status codes.
+
+```
+apps/users-service/src/providers/
+├── register.provider.ts            # User registration, bcrypt hashing, Outbox events
+├── verify-account.provider.ts      # OTP verification, 7-attempt lockout, multi-device sessions
+├── verification-code.provider.ts   # OTP re-issuing & 60s cooldown checks
+├── user-query.provider.ts          # Find by ID & authentication credentials query
+├── password-management.provider.ts # Profile updates & password management
+└── index.ts                        # Clean barrel export
+
+apps/api-gateway/src/users/providers/
+├── registration.provider.ts        # Avatar validation & gRPC user dispatch
+├── account-verification.provider.ts# Auto-login token extraction & lockout handling
+├── verification-code.provider.ts   # Cooldown enforcement & code re-issuance
+└── index.ts
+
+apps/api-gateway/src/media/providers/
+├── upload-url.provider.ts          # Presigned S3 PUT URL generation
+├── file-query.provider.ts          # Object verification & URL retrieval
+└── index.ts
+```
+
+### 2. Transactional Outbox Pattern
 * **The Problem:** In distributed architectures, updating a relational database and publishing an event to a message broker within the same execution cycle creates a dual-write problem. If the message broker is unreachable, the event is lost.
 * **The Solution:** The user entity and the event payload are written atomically to `users` and `outbox_messages` tables inside a single database transaction (`queryRunner`).
 * A background `OutboxWorker` reads pending messages, publishes them to RabbitMQ, and marks them as `PUBLISHED` only after acknowledgment, guaranteeing **At-Least-Once Delivery**.
 
-### 2. Direct-to-Storage Upload Pattern (Presigned URLs)
+### 3. Direct-to-Storage Upload Pattern (Presigned URLs)
 * **The Problem:** Uploading media files (avatars, course videos, attachments) through an API Gateway causes server memory bloat, high CPU utilization during multipart parsing (Multer), and network bottlenecks that degrade API response times.
 * **The Solution:**
   1. The client requests a cryptographically signed PUT URL from `POST /api/v1/media/avatar/upload-url`.
@@ -121,7 +149,7 @@ flowchart TB
   3. The client submits a pure JSON registration payload containing `tempPhotoKey`.
   4. The API Gateway verifies the file exists via high-speed gRPC (`CheckFileExists`) without loading the image buffer into memory.
 
-### 3. Distributed Multi-Device Session Management
+### 4. Distributed Multi-Device Session Management
 * Active sessions are tracked inside Redis Hash structures: `session:{sessionId}` containing:
   - `userId`
   - `hashedRefreshToken` (SHA-256)
@@ -172,12 +200,56 @@ flowchart TB
 
 ## 5. Security & Abuse Prevention Architecture
 
-### A. Cryptographic OTP Verification
+### A. Edge IP-Based Rate Limiting (Redis & Atomic Lua Scripting)
+To shield the platform against bot-driven account creation, credential stuffing, and staging storage exhaustion, the API Gateway incorporates an **Edge IP Rate Limiting Guard** powered by Redis:
+- **Client IP Resolution:** Accurately extracts real client IPs traversing reverse proxies, cloud load balancers, and Cloudflare using `x-forwarded-for` (first hop), `x-real-ip`, and IPv6 address normalization (`::ffff:` stripping).
+- **Atomic Lua Counter Execution:** Avoids race conditions by running an atomic Lua script that increments the key and ensures the TTL expiration is guaranteed:
+  ```lua
+  local current = redis.call('INCR', KEYS[1])
+  if tonumber(current) == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+  else
+    local ttl = redis.call('TTL', KEYS[1])
+    if ttl == -1 then
+      redis.call('EXPIRE', KEYS[1], ARGV[1])
+    end
+  end
+  return current
+  ```
+- **Standardized Rate-Limit Headers (IETF Draft):**
+  - `X-RateLimit-Limit`: Maximum requests permitted within the time window.
+  - `X-RateLimit-Remaining`: Remaining allowance for the requesting IP.
+  - `X-RateLimit-Reset`: Unix timestamp when the current window expires.
+  - `Retry-After`: Seconds to wait before retrying when blocked (`429 Too Many Requests`).
+- **Fail-Open Resilience:** If Redis encounters a temporary connection drop, the guard logs an alert and fails open, preventing an infrastructure glitch from taking down public traffic.
+
+#### Rate Limit Policies Applied:
+| Protected Endpoint | Allowance Limit | Window (TTL) | Security Objective |
+| :--- | :---: | :---: | :--- |
+| `POST /api/v1/users/auth/register` | **5 requests** | **15 minutes** | Stops bot farms from generating fake accounts & triggering mass emails |
+| `POST /api/v1/users/auth/send-verification-code` | **5 requests** | **15 minutes** | Prevents endpoint weaponization for Email/SMS bombing attacks |
+| `POST /api/v1/users/auth/verify-account` | **15 attempts** | **15 minutes** | Defense-in-depth against distributed IP-based OTP guessing |
+| `POST /api/v1/media/avatar/upload-url` | **10 requests** | **15 minutes** | Prevents storage staging exhaustion with dummy presigned URLs |
+| `POST /api/v1/media/upload-url` | **20 requests** | **15 minutes** | Shields general presigned upload URL issuance |
+
+---
+
+### B. Email Uniqueness & Sender Reputation Shield
+If an attacker repeatedly submits registration requests using the same email address, receiving mail services (Google Gmail, Microsoft Outlook) could classify transactional emails as spam, severely degrading domain sender reputation. The platform prevents this through a multi-tier defense:
+1. **Relational Constraints:** A strict database-level unique constraint (`CONSTRAINT "UQ_users_email" UNIQUE ("email")`) and a unique index (`IDX_users_email`) in PostgreSQL guarantee zero duplicated email rows can ever exist.
+2. **Pre-Flight Duplication Check:** The `RegisterProvider` performs an index-backed lookup for existing emails/usernames before entering any transaction. If found, it immediately aborts with `ALREADY_EXISTS` (HTTP 409 Conflict).
+3. **Zero Outbox Leakage:** Because duplicate requests are terminated before the Outbox stage, **zero messages are queued in RabbitMQ and zero emails are dispatched**, completely shielding the domain from spam scoring.
+
+---
+
+### C. Cryptographic OTP Verification
 - OTP codes are generated using cryptographically secure random integers (`crypto.randomInt(100000, 1000000)`).
 - The OTP is stored in Redis **hashed with SHA-256** under `otp:verify:{email}`. Plaintext codes are never stored in cache memory.
 - Standard validity window: **10 minutes (600 seconds)**.
 
-### B. Brute-Force Lockout Guard (7 Attempts / 15-Minute Freeze)
+---
+
+### D. Brute-Force Lockout Guard (7 Attempts / 15-Minute Freeze)
 - Max allowed failed verification attempts: **7 attempts**.
 - On every invalid submission, the remaining attempts are returned:
   > *"Invalid verification code. You have X attempts remaining."*
@@ -187,13 +259,17 @@ flowchart TB
   3. The API responds with `HTTP 429 Too Many Requests` including a `Retry-After: 900` response header.
 - **Dual-Path Lockout Enforcement:** A locked account is prevented from bypassing the lockout via the resend endpoint. Both `/verify-account` and `/send-verification-code` strictly enforce the 15-minute freeze window.
 
-### C. 60-Second Cooldown Guard (Email Flooding Prevention)
+---
+
+### E. 60-Second Cooldown Guard (Email Flooding Prevention)
 - Enforced via `cooldown:verify:{email}` in Redis with a **60-second TTL**.
 - Activated upon user registration and refreshed on every code resend.
 - Prevents malicious automated scripts or users from spamming verification emails.
 - If invoked before expiry, the endpoint rejects the call with `HTTP 429 Too Many Requests` and a dynamic `Retry-After` header.
 
-### D. Dual-Token Authentication Security
+---
+
+### F. Dual-Token Authentication Security
 - **Access Token:** Short-lived JWT (15 minutes expiry) containing `sub`, `email`, `role`, and `sessionId`.
 - **Refresh Token:** Cryptographically secure 32-byte hex string, hashed with SHA-256 in Redis.
 - Transported exclusively inside an **HttpOnly Cookie**:
@@ -210,6 +286,7 @@ Base URL: `http://localhost:3000/api/v1`
 
 ### 1. Request Presigned Avatar Upload URL
 * **Endpoint:** `POST /media/avatar/upload-url`
+* **Rate Limit:** 10 requests / 15 minutes per IP
 * **Content-Type:** `application/json`
 * **Request Body:**
 ```json
@@ -235,10 +312,11 @@ Base URL: `http://localhost:3000/api/v1`
 
 ### 2. User Registration (Pure JSON)
 * **Endpoint:** `POST /users/auth/register`
+* **Rate Limit:** 5 requests / 15 minutes per IP
 * **Content-Type:** `application/json`
 * **Request Fields:**
   - `username` *(string, required)*: Unique user handle (3-50 chars).
-  - `email` *(string, required)*: Valid email address.
+  - `email` *(string, required)*: Valid unique email address.
   - `password` *(string, required)*: Minimum 8 characters.
   - `birthDate` *(string, optional)*: ISO date string.
   - `tempPhotoKey` *(string, optional)*: Key returned from `upload-url` endpoint (e.g., `temp_uploads/avatars/...`).
@@ -260,11 +338,23 @@ Base URL: `http://localhost:3000/api/v1`
   "userId": "97e283f5-7484-48f8-b3d6-444dd1a5f60b"
 }
 ```
+* **Duplicate Email Response (409 Conflict):**
+```json
+{
+  "success": false,
+  "statusCode": 409,
+  "message": "User with this email already exists",
+  "error": "Conflict",
+  "timestamp": "2026-10-18T13:40:00.000Z",
+  "path": "/api/v1/users/auth/register"
+}
+```
 
 ---
 
 ### 3. Account Verification & Auto-Login
 * **Endpoint:** `POST /users/auth/verify-account`
+* **Rate Limit:** 15 attempts / 15 minutes per IP
 * **Content-Type:** `application/json`
 * **Request Body:**
 ```json
@@ -297,6 +387,7 @@ Base URL: `http://localhost:3000/api/v1`
 
 ### 4. Resend Verification Code
 * **Endpoint:** `POST /users/auth/send-verification-code`
+* **Rate Limit:** 5 requests / 15 minutes per IP
 * **Content-Type:** `application/json`
 * **Request Body:**
 ```json
@@ -334,6 +425,9 @@ Base URL: `http://localhost:3000/api/v1`
 | **Transactional Outbox Engine** | Users Service + PostgreSQL + RabbitMQ | ✅ Completed |
 | **Account Verification + Auto-Login** | Gateway + Users + Redis | ✅ Completed |
 | **Resend Code + Cooldown + Lockout** | Gateway + Users + Notifications | ✅ Completed |
+| **Modular Providers Refactoring** | Users Service & Gateway (Clean Architecture) | ✅ Completed |
+| **Edge IP Rate Limiting Guard** | API Gateway + Redis Lua Engine | ✅ Completed |
+| **Email Uniqueness & Spam Protection** | PostgreSQL Unique Constraints + Gateway 409 | ✅ Completed |
 | **Login Endpoint (`/users/auth/login`)** | Bcrypt validation, Redis session issuance, dual tokens | ⏳ **Next Milestone** |
 | **Token Refresh (`/users/auth/refresh`)** | Cookie parsing, token rotation, Redis session renewal | ⏳ Upcoming |
 | **Logout Endpoint (`/users/auth/logout`)** | Session purge, cookie clearance, token blacklisting | ⏳ Upcoming |

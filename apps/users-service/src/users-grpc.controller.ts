@@ -47,67 +47,38 @@ export class UsersGrpcController implements UsersServiceController {
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'FindUserById')
-  findUserById(request: FindUserByIdRequest): UserResponse {
+  async findUserById(request: FindUserByIdRequest): Promise<UserResponse> {
     this.logger.debug(`gRPC FindUserById called for user: ${request.id}`);
-    return {
-      id: request.id,
-      email: 'placeholder@skillup.com',
-      username: 'placeholder_user',
-      role: 'STUDENT',
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    return this.usersService.findUserById(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'ValidateUser')
-  validateUser(request: ValidateUserRequest): UserResponse {
+  async validateUser(request: ValidateUserRequest): Promise<UserResponse> {
     this.logger.debug(`gRPC ValidateUser called for email: ${request.email}`);
-    return {
-      id: 'placeholder-uuid',
-      email: request.email,
-      username: 'placeholder_user',
-      role: 'STUDENT',
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    return this.usersService.validateUser(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'UpdateProfile')
-  updateProfile(request: UpdateProfileRequest): UpdateProfileResponse {
+  async updateProfile(request: UpdateProfileRequest): Promise<UpdateProfileResponse> {
     this.logger.debug(`gRPC UpdateProfile called for user: ${request.userId}`);
-    return {
-      success: true,
-      message: 'Profile updated successfully (placeholder)',
-      userId: request.userId,
-    };
+    return this.usersService.updateProfile(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'ChangePassword')
-  changePassword(request: ChangePasswordRequest): ActionResponse {
+  async changePassword(request: ChangePasswordRequest): Promise<ActionResponse> {
     this.logger.debug(`gRPC ChangePassword called for user: ${request.userId}`);
-    return {
-      success: true,
-      message: 'Password changed successfully (placeholder)',
-    };
+    return this.usersService.changePassword(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'ForgotPassword')
-  forgotPassword(request: ForgotPasswordRequest): ActionResponse {
+  async forgotPassword(request: ForgotPasswordRequest): Promise<ActionResponse> {
     this.logger.debug(`gRPC ForgotPassword called for email: ${request.email}`);
-    return {
-      success: true,
-      message: 'Password reset code sent successfully (placeholder)',
-    };
+    return this.usersService.forgotPassword(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'ResetPassword')
-  resetPassword(request: ResetPasswordRequest): ActionResponse {
+  async resetPassword(request: ResetPasswordRequest): Promise<ActionResponse> {
     this.logger.debug(`gRPC ResetPassword called for email: ${request.email}`);
-    return {
-      success: true,
-      message: 'Password has been reset successfully (placeholder)',
-    };
+    return this.usersService.resetPassword(request);
   }
 }

@@ -9,6 +9,12 @@ import {
 } from '@skillup/shared/interfaces';
 import { MediaModule } from '../media/media.module';
 import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import {
+  RegistrationProvider,
+  AccountVerificationProvider,
+  VerificationCodeProvider,
+} from './providers';
 
 @Module({
   imports: [
@@ -42,6 +48,18 @@ import { AuthController } from './auth.controller';
     ]),
   ],
   controllers: [AuthController],
-  exports: [ClientsModule],
+  providers: [
+    AuthService,
+    RegistrationProvider,
+    AccountVerificationProvider,
+    VerificationCodeProvider,
+  ],
+  exports: [
+    ClientsModule,
+    AuthService,
+    RegistrationProvider,
+    AccountVerificationProvider,
+    VerificationCodeProvider,
+  ],
 })
 export class UsersModule {}
