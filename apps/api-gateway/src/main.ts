@@ -13,6 +13,11 @@ async function bootstrap() {
     : ['log', 'error', 'warn'];
 
   const app = await NestFactory.create(AppModule, { logger: logLevels });
+
+  // SEC-001: Configure trusted proxy hops securely (trust first hop reverse proxy like Nginx)
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+
   const configService = app.get(ConfigService);
   const port = configService.get<number>('API_GATEWAY_PORT', 3000);
   const globalPrefix = 'api/v1';

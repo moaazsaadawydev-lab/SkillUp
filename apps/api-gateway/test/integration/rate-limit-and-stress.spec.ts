@@ -67,6 +67,8 @@ describe('Integration Tests: Edge IP Rate Limiter, Lockouts & High-Load Stress',
     }).compile();
 
     app = moduleRef.createNestApplication();
+    const expressApp = app.getHttpAdapter().getInstance();
+    expressApp.set('trust proxy', 1);
     app.setGlobalPrefix('api/v1');
     app.use(cookieParser());
     app.useGlobalPipes(
@@ -177,6 +179,75 @@ describe('Integration Tests: Edge IP Rate Limiter, Lockouts & High-Load Stress',
 
       expect(blockedRes.status).toBe(429);
       expect(blockedRes.headers['retry-after']).toBeDefined();
+    });
+
+    it('Anti-Spoofing (SEC-001): should prevent IP spoofing by ignoring forged X-Forwarded-For headers', async () => {
+      const realClientIp = '198.51.100.99';
+
+      // Attacker attempts to bypass IP rate limiting by prepending spoofed IPs in X-Forwarded-For
+      for (let i = 1; i <= 5; i++) {
+        const res = await request(app.getHttpServer())
+          .post('/api/v1/users/auth/register')
+          .set('x-forwarded-for', `spoofed.${i}.com, ${realClientIp}`)
+          .send({
+            username: `spoof_user_${i}`,
+            email: `spoof_${i}@skillup.com`,
+            password: 'Password123!',
+          });
+
+        expect(res.status).toBe(201);
+      }
+
+      // 6th attempt with another spoofed prepended IP MUST be blocked because Express trusts 1 hop (realClientIp)
+      const blockedRes = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/register')
+        .set('x-forwarded-for', `spoofed.6.com, ${realClientIp}`)
+        .send({
+          username: 'spoof_user_6',
+          email: 'spoof_6@skillup.com',
+          password: 'Password123!',
+        });
+
+      expect(blockedRes.status).toBe(429);
+      expect(blockedRes.body.statusCode).toBe(429);
+      expect(blockedRes.body.message).toContain('Too many requests from this IP address');
+      expect(blockedRes.headers['retry-after']).toBeDefined();
+    });
+
+    it('Distributed Botnet Defense (SEC-003): should block distributed attack targeting the SAME email on 6th attempt across 50 distinct IPs', async () => {
+      const targetEmail = 'ceo@target-corporation.com';
+
+      // 5 attempts from 5 distinct IPs targeting the same email must succeed
+      for (let i = 1; i <= 5; i++) {
+        const res = await request(app.getHttpServer())
+          .post('/api/v1/users/auth/register')
+          .set('x-forwarded-for', `185.220.101.${i}`) // distinct botnet IPs
+          .send({
+            username: `bot_user_${i}`,
+            email: targetEmail,
+            password: 'Password123!',
+          });
+
+        expect(res.status).toBe(201);
+      }
+
+      // 6th through 50th attempts from completely different IPs targeting the same email MUST be BLOCKED by email-level rate limiting
+      for (let i = 6; i <= 50; i++) {
+        const res = await request(app.getHttpServer())
+          .post('/api/v1/users/auth/register')
+          .set('x-forwarded-for', `185.220.101.${i}`) // distinct botnet IP
+          .send({
+            username: `bot_user_${i}`,
+            email: targetEmail,
+            password: 'Password123!',
+          });
+
+        expect(res.status).toBe(429);
+        expect(res.body.statusCode).toBe(429);
+        expect(res.body.message).toContain('targeting this account');
+        expect(res.headers['retry-after']).toBeDefined();
+        expect(res.headers['x-ratelimit-remaining']).toBe('0');
+      }
     });
   });
 

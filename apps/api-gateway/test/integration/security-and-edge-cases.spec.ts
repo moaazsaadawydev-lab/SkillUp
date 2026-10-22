@@ -67,6 +67,8 @@ describe('Integration Tests: Edge Cases, Security & XSS Injections', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    const expressApp = app.getHttpAdapter().getInstance();
+    expressApp.set('trust proxy', 1);
     app.setGlobalPrefix('api/v1');
     app.use(cookieParser());
     app.useGlobalPipes(

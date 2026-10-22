@@ -328,6 +328,31 @@ services:
     networks:
       - skillhub_network
 
+  # ==============================================================================
+  # Edge Reverse Proxy / Ingress
+  # ==============================================================================
+
+  nginx:
+    image: nginx:alpine
+    container_name: skillhub_nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      api-gateway:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - skillhub_network
+
 # ==============================================================================
 # Networks & Volumes
 # ==============================================================================

@@ -44,11 +44,7 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const ipAddress =
-      req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ||
-      req.ip ||
-      req.socket?.remoteAddress ||
-      '127.0.0.1';
+    const ipAddress = req.ip || req.socket?.remoteAddress || '127.0.0.1';
     const userAgent = req.headers['user-agent'] || 'Unknown-Device';
 
     try {

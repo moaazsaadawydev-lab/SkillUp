@@ -21,7 +21,7 @@ describe('Unit Tests: Guards & Providers Logic', () => {
       guard = new IpRateLimitGuard(reflector, mockRedis as any);
     });
 
-    function createMockContext(ipHeader?: string, clientIp = '192.168.1.100') {
+    function createMockContext(ipHeader?: string, clientIp = '192.168.1.100', body?: any) {
       const headers: Record<string, string> = {};
       if (ipHeader) {
         headers['x-forwarded-for'] = ipHeader;
@@ -32,6 +32,7 @@ describe('Unit Tests: Guards & Providers Logic', () => {
         headers,
         ip: clientIp,
         socket: { remoteAddress: clientIp },
+        body: body || {},
       };
       const res: any = {
         setHeader: jest.fn((k: string, v: string) => {
@@ -59,18 +60,66 @@ describe('Unit Tests: Guards & Providers Logic', () => {
       expect(result).toBe(true);
     });
 
-    it('should correctly parse IP from x-forwarded-for (first hop) and strip IPv6 prefix', async () => {
+    it('should extract client IP safely from req.ip and strip IPv6 prefix', async () => {
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue({
         limit: 5,
         ttl: 900,
         prefix: 'test-ip',
       });
-      const { context, responseHeaders } = createMockContext('::ffff:203.0.113.195, 70.41.3.18, 150.172.238.178');
+      const { context, responseHeaders } = createMockContext(undefined, '::ffff:203.0.113.195');
 
       const result = await guard.canActivate(context);
       expect(result).toBe(true);
       expect(responseHeaders['X-RateLimit-Limit']).toBe('5');
       expect(responseHeaders['X-RateLimit-Remaining']).toBe('4');
+    });
+
+    it('should ignore forged X-Forwarded-For headers and rely on sanitized req.ip (SEC-001)', async () => {
+      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue({
+        limit: 2,
+        ttl: 900,
+        prefix: 'spoof-defense',
+      });
+      const realIp = '198.51.100.50';
+
+      // Attacker attempts to forge X-Forwarded-For with different IPs on every request
+      const { context: req1 } = createMockContext('1.1.1.1', realIp);
+      const { context: req2 } = createMockContext('2.2.2.2', realIp);
+      const { context: req3 } = createMockContext('3.3.3.3', realIp);
+
+      await guard.canActivate(req1);
+      await guard.canActivate(req2);
+      await expect(guard.canActivate(req3)).rejects.toThrow(HttpException);
+    });
+
+    it('should enforce Email-level rate limiting across different client IPs (SEC-003)', async () => {
+      jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue({
+        limit: 3,
+        ttl: 900,
+        prefix: 'account-defense',
+      });
+
+      const targetEmail = 'victim@skillup.com';
+
+      // 3 requests from 3 distinct IPs targeting the same email
+      const { context: req1 } = createMockContext(undefined, '10.0.0.1', { email: targetEmail });
+      const { context: req2 } = createMockContext(undefined, '10.0.0.2', { email: targetEmail });
+      const { context: req3 } = createMockContext(undefined, '10.0.0.3', { email: targetEmail });
+      const { context: req4 } = createMockContext(undefined, '10.0.0.4', { email: targetEmail });
+
+      expect(await guard.canActivate(req1)).toBe(true);
+      expect(await guard.canActivate(req2)).toBe(true);
+      expect(await guard.canActivate(req3)).toBe(true);
+
+      // 4th request from another IP must be blocked because the email reached the limit (3)
+      await expect(guard.canActivate(req4)).rejects.toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: expect.stringContaining('targeting this account'),
+          }),
+        }),
+      );
     });
 
     it('should allow requests within limit and track remaining allowance', async () => {

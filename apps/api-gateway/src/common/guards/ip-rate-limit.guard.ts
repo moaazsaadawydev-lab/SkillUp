@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request, Response } from 'express';
+import * as crypto from 'crypto';
 import { RedisService } from '@skillup/shared/redis';
 import {
   RATE_LIMIT_KEY,
@@ -38,13 +39,30 @@ export class IpRateLimitGuard implements CanActivate {
     const req = httpContext.getRequest<Request>();
     const res = httpContext.getResponse<Response>();
 
-    // 1. Robust client IP resolution
+    // 1. Resolve safe client IP and construct Layer A (IP Rate Limit) key
     const clientIp = this.extractClientIp(req);
     const prefix = options.prefix || 'global';
-    const redisKey = `ratelimit:${prefix}:ip:${clientIp}`;
+    const ipKey = `ratelimit:${prefix}:ip:${clientIp}`;
+
+    // 2. Construct Layer B (Email Rate Limit) key if an email is present in request body
+    let emailKey: string | null = null;
+    let emailHash: string | null = null;
+    if (
+      req.body &&
+      typeof req.body.email === 'string' &&
+      req.body.email.trim().length > 0
+    ) {
+      const normalizedEmail = req.body.email.trim().toLowerCase();
+      emailHash = crypto
+        .createHash('sha256')
+        .update(normalizedEmail)
+        .digest('hex')
+        .substring(0, 16);
+      emailKey = `ratelimit:${prefix}:email:${emailHash}`;
+    }
 
     try {
-      // 2. Atomic increment and expiration management via Redis Lua script
+      // 3. Atomic increment and expiration management via Redis Lua script
       const luaScript = `
         local current = redis.call('INCR', KEYS[1])
         if tonumber(current) == 1 then
@@ -58,37 +76,80 @@ export class IpRateLimitGuard implements CanActivate {
         return current
       `;
 
-      const count = Number(
+      // Execute Layer A (IP rate limit counter)
+      const ipCount = Number(
         await this.redisService.getClient().eval(
           luaScript,
           1,
-          redisKey,
+          ipKey,
           options.ttl.toString(),
         ),
       );
+      const ipRemainingTtl = await this.redisService.ttl(ipKey);
+      const ipEffectiveTtl = ipRemainingTtl > 0 ? ipRemainingTtl : options.ttl;
+      const ipRemainingRequests = Math.max(0, options.limit - ipCount);
 
-      const remainingTtl = await this.redisService.ttl(redisKey);
-      const effectiveTtl = remainingTtl > 0 ? remainingTtl : options.ttl;
-      const remainingRequests = Math.max(0, options.limit - count);
+      // Execute Layer B (Email rate limit counter) if applicable
+      let emailCount = 0;
+      let emailEffectiveTtl = options.ttl;
+      let emailRemainingRequests = options.limit;
+
+      if (emailKey) {
+        emailCount = Number(
+          await this.redisService.getClient().eval(
+            luaScript,
+            1,
+            emailKey,
+            options.ttl.toString(),
+          ),
+        );
+        const emailRemainingTtl = await this.redisService.ttl(emailKey);
+        emailEffectiveTtl =
+          emailRemainingTtl > 0 ? emailRemainingTtl : options.ttl;
+        emailRemainingRequests = Math.max(0, options.limit - emailCount);
+      }
+
+      // 4. Attach standard rate-limiting headers (IETF draft standard)
+      const remainingRequests = emailKey
+        ? Math.min(ipRemainingRequests, emailRemainingRequests)
+        : ipRemainingRequests;
+      const effectiveTtl = emailKey
+        ? Math.max(ipEffectiveTtl, emailEffectiveTtl)
+        : ipEffectiveTtl;
       const resetTime = Math.ceil(Date.now() / 1000) + effectiveTtl;
 
-      // 3. Attach standard rate-limiting headers (IETF draft standard)
       res.setHeader('X-RateLimit-Limit', options.limit.toString());
       res.setHeader('X-RateLimit-Remaining', remainingRequests.toString());
       res.setHeader('X-RateLimit-Reset', resetTime.toString());
 
-      // 4. Threshold check
-      if (count > options.limit) {
-        res.setHeader('Retry-After', effectiveTtl.toString());
+      // 5. Dual-Layer Threshold Checks (IP or Email exceeded)
+      if (ipCount > options.limit) {
+        res.setHeader('Retry-After', ipEffectiveTtl.toString());
         this.logger.warn(
-          `[RateLimit Blocked] IP: ${clientIp} exceeded limit (${count}/${options.limit}) for prefix "${prefix}". Retry-After: ${effectiveTtl}s`,
+          `[RateLimit Blocked] IP: ${clientIp} exceeded limit (${ipCount}/${options.limit}) for prefix "${prefix}". Retry-After: ${ipEffectiveTtl}s`,
         );
 
         throw new HttpException(
           {
             statusCode: HttpStatus.TOO_MANY_REQUESTS,
-            message: `Too many requests from this IP address. Please try again in ${Math.ceil(effectiveTtl / 60)} minutes.`,
-            retryAfter: effectiveTtl,
+            message: `Too many requests from this IP address. Please try again in ${Math.ceil(ipEffectiveTtl / 60)} minutes.`,
+            retryAfter: ipEffectiveTtl,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+
+      if (emailKey && emailCount > options.limit) {
+        res.setHeader('Retry-After', emailEffectiveTtl.toString());
+        this.logger.warn(
+          `[RateLimit Blocked] Target account (hash: ${emailHash}) exceeded limit (${emailCount}/${options.limit}) for prefix "${prefix}". Retry-After: ${emailEffectiveTtl}s`,
+        );
+
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: `Too many requests targeting this account. Please try again in ${Math.ceil(emailEffectiveTtl / 60)} minutes.`,
+            retryAfter: emailEffectiveTtl,
           },
           HttpStatus.TOO_MANY_REQUESTS,
         );
@@ -109,24 +170,10 @@ export class IpRateLimitGuard implements CanActivate {
 
   /**
    * Resolves client IP addressing reverse proxies, cloud load balancers, and IPv6 formatting.
+   * Relies safely on Express-sanitized req.ip (via 'trust proxy' configuration) or socket remoteAddress.
    */
   private extractClientIp(req: Request): string {
-    const forwarded = req.headers['x-forwarded-for'];
-    let clientIp: string | undefined;
-
-    if (typeof forwarded === 'string') {
-      clientIp = forwarded.split(',')[0].trim();
-    } else if (Array.isArray(forwarded) && forwarded.length > 0) {
-      clientIp = forwarded[0].trim();
-    } else if (typeof req.headers['x-real-ip'] === 'string') {
-      clientIp = req.headers['x-real-ip'].trim();
-    } else {
-      clientIp = req.ip || req.socket?.remoteAddress;
-    }
-
-    if (!clientIp) {
-      clientIp = '127.0.0.1';
-    }
+    let clientIp = req.ip || req.socket?.remoteAddress || '127.0.0.1';
 
     if (clientIp.startsWith('::ffff:')) {
       clientIp = clientIp.substring(7);
