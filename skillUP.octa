@@ -343,7 +343,7 @@
     "activeModule": "git",
     "activeQueryTabId": "tab-1792419774186",
     "browser": {
-      "activeTabId": "btab-1792653731816-sylc",
+      "activeTabId": "btab-1792665619314-yjyc",
       "tabs": [
         {
           "faviconUrl": "http://127.0.0.1:58501/favicon-32x32.png",
@@ -352,13 +352,31 @@
           "title": "MinIO Console",
           "url": "http://localhost:9001",
           "viewportMode": "desktop"
+        },
+        {
+          "faviconUrl": "http://127.0.0.1:61851/favicon.ico",
+          "id": "btab-1792665619314-yjyc",
+          "reloadKey": 0,
+          "title": "SkillUp Platform — تقرير نتائج الاختبارات الشامل وتدقيق الثغرات الأمنية",
+          "url": "D:/Moaz/Programing/Projects/SkillUp/Test Results/index.html",
+          "viewportMode": "desktop"
         }
       ]
     },
     "dbSubView": "tables",
     "editor": {
-      "activeTabId": null,
-      "tabs": []
+      "activeTabId": "D:/Moaz/Programing/Projects/SkillUp/Test Results/index.html",
+      "tabs": [
+        {
+          "fullPath": "D:/Moaz/Programing/Projects/SkillUp/Test Results/index.html",
+          "id": "D:/Moaz/Programing/Projects/SkillUp/Test Results/index.html",
+          "isDirty": false,
+          "isPreview": true,
+          "language": "html",
+          "relPath": "Test Results/index.html",
+          "title": "index.html"
+        }
+      ]
     },
     "http": {
       "activeTabId": "req-1791124335830-dy58d",
@@ -527,5 +545,5 @@
       ]
     }
   },
-  "updatedAt": "2026-10-22T09:42:33.273Z"
+  "updatedAt": "2026-10-22T12:21:16.915Z"
 }

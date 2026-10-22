@@ -50,3 +50,7 @@ skillUP.octa
 System design
 
 *.octa
+
+# Test Results & Reports
+Test Results/
+test-results/

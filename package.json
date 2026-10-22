@@ -4,7 +4,9 @@
   "license": "MIT",
   "scripts": {
     "build": "nx run-many --target=build --all",
-    "test": "nx run-many --target=test --all",
+    "test": "jest --config jest.config.js",
+    "test:cov": "jest --config jest.config.js --coverage",
+    "test:nx": "nx run-many --target=test --all",
     "lint": "nx run-many --target=lint --all",
     "start:api-gateway": "nx serve api-gateway",
     "start:users": "nx serve users-service",
