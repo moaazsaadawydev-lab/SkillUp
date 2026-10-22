@@ -76,6 +76,8 @@ export class UploadUrlProvider implements OnModuleInit {
           uploadUrl: response.uploadUrl || response.upload_url,
           fileKey: response.fileKey || response.file_key,
           expiresIn: response.expiresIn || response.expires_in,
+          minFileSize: 1024,
+          maxFileSize: 5 * 1024 * 1024,
         },
       };
     } catch (error: any) {

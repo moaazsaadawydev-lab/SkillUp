@@ -194,7 +194,9 @@ apps/api-gateway/src/media/providers/
 1. **Smart Attention Face Crop:** If no crop coordinates are passed, **Sharp / libvips** uses `sharp.strategy.attention` to automatically detect facial features and human skin tones, cropping a perfect 500x500 circular avatar centered on the person.
 2. **Smartphone EXIF Auto-Orientation:** Automatically parses EXIF orientation metadata so mobile camera uploads are never rotated sideways or upside-down.
 3. **WebP Optimization:** Converts all uploaded formats (JPEG, PNG, WebP) to lightweight, high-performance WebP images at 90% quality with alpha circular masking.
-4. **Automated ILM Storage Hygiene:** An automated MinIO Information Lifecycle Management (ILM) policy automatically expires and purges abandoned files in `temp_uploads/` after 24 hours.
+4. **Automated 2-Hour Storage Hygiene:** A proactive background `TempCleanupService` sweeps `temp_uploads/` every 30 minutes, automatically purging abandoned files older than **2 hours** to defend against staging storage exhaustion.
+5. **Single-Use Presigned Upload Token:** Presigned URLs expire in **2 minutes (120s)** and are tracked in Redis as `PENDING`. Upon successful user registration, the token transitions to `CONSUMED`, preventing replay attacks or token reuse across accounts.
+6. **Strict Content-Length Enforcement (1KB - 5MB):** Uploaded avatars are verified against strict size boundaries; files outside this range are rejected with `400 Bad Request` and immediately deleted from storage.
 
 ---
 
@@ -303,7 +305,9 @@ Base URL: `http://localhost:3000/api/v1`
   "success": true,
   "uploadUrl": "http://localhost:9000/skillhub-media/temp_uploads/avatars/uuid_my-photo.jpg?X-Amz-Algorithm=...",
   "fileKey": "temp_uploads/avatars/uuid_my-photo.jpg",
-  "expiresIn": 300,
+  "expiresIn": 120,
+  "minFileSize": 1024,
+  "maxFileSize": 5242880,
   "publicUrl": "http://localhost:9000/skillhub-media/temp_uploads/avatars/uuid_my-photo.jpg"
 }
 ```

@@ -117,6 +117,16 @@ export class RegisterProvider {
 
       // Event 2: PROCESS_PROFILE_PHOTO (if photo uploaded)
       if (tempPhotoKey && profilePhoto) {
+        // Enforce single-use token defense in Redis
+        const uploadStatus = await this.redisService.get(`upload:temp:${tempPhotoKey}`);
+        if (uploadStatus === 'CONSUMED') {
+          throw new RpcException({
+            code: status.ALREADY_EXISTS,
+            message: 'This avatar upload key has already been consumed.',
+          });
+        }
+        await this.redisService.setWithTtl(`upload:temp:${tempPhotoKey}`, 'CONSUMED', 600);
+
         const photoOutboxMessage = queryRunner.manager.create(OutboxMessage, {
           eventType: OUTBOX_EVENTS.PROCESS_PROFILE_PHOTO,
           payload: {

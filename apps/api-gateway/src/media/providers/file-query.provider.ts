@@ -92,4 +92,23 @@ export class FileQueryProvider implements OnModuleInit {
       );
     }
   }
+
+  /**
+   * Deletes a file from MinIO storage via gRPC
+   */
+  async deleteFile(fileKey: string) {
+    if (!fileKey) {
+      throw new BadRequestException('File key is required for deletion');
+    }
+
+    try {
+      const response = await firstValueFrom(
+        this.mediaServiceClient.deleteFile({ fileKey }),
+      );
+      return response;
+    } catch (error: any) {
+      this.logger.error(`gRPC DeleteFile failed for key="${fileKey}":`, error);
+      return { success: false, message: 'Failed to delete file' };
+    }
+  }
 }

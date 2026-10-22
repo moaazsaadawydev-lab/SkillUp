@@ -44,6 +44,13 @@ export class MediaService {
   }
 
   /**
+   * Deletes a file from MinIO storage
+   */
+  async deleteFile(fileKey: string) {
+    return this.fileQueryProvider.deleteFile(fileKey);
+  }
+
+  /**
    * Internal helper to generate presigned upload URLs
    */
   async generateUploadUrl(

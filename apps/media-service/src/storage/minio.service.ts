@@ -185,7 +185,7 @@ export class MinioService implements OnModuleInit {
    */
   async getPresignedUploadUrl(
     key: string,
-    expirySeconds = 300,
+    expirySeconds = 120,
     bucket?: string,
   ): Promise<string> {
     const targetBucket = bucket || this.defaultBucket;

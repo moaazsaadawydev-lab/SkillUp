@@ -148,6 +148,15 @@ export class MediaConsumerService implements OnModuleInit, OnModuleDestroy {
       `Downloaded raw buffer for user ${userId} (${rawBuffer.length} bytes)`,
     );
 
+    // Validate size boundaries: 1 KB to 5 MB
+    if (rawBuffer.length < 1024 || rawBuffer.length > 5 * 1024 * 1024) {
+      this.logger.warn(
+        `Aborting avatar processing for user ${userId}: file size (${rawBuffer.length} bytes) is outside permitted range [1KB, 5MB]. Deleting invalid temp file.`,
+      );
+      await this.minioService.deleteObject(tempKey).catch(() => null);
+      return;
+    }
+
     // 2. Process image with sharp (crop, resize 500x500, circular mask, webp)
     const processedBuffer = await this.imageProcessor.processProfileAvatar(
       rawBuffer,

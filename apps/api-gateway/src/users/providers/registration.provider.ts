@@ -17,6 +17,7 @@ import {
   CreateUserRequest,
   CreateUserResponse,
 } from '@skillup/shared/interfaces';
+import { RedisService } from '@skillup/shared/redis';
 import { MediaService } from '../../media/media.service';
 import { RegisterRequestDto } from '../dto/register-request.dto';
 
@@ -28,6 +29,7 @@ export class RegistrationProvider implements OnModuleInit {
   constructor(
     @Inject(USERS_SERVICE_NAME) private readonly usersGrpcClient: ClientGrpc,
     private readonly mediaService: MediaService,
+    private readonly redisService: RedisService,
   ) {}
 
   onModuleInit() {
@@ -37,23 +39,60 @@ export class RegistrationProvider implements OnModuleInit {
 
   /**
    * Handle user registration:
-   * 1. If tempPhotoKey is provided, verify file existence via MediaService and compute destination path.
-   * 2. Build transformations object if crop coordinates or rotation were specified.
+   * 1. Single-use Presigned URL validation via Redis (PENDING status with 120s TTL).
+   * 2. Content-length validation in MinIO (strictly 1KB to 5MB).
    * 3. Invoke UsersService gRPC CreateUser.
-   * 4. Map gRPC errors to standard HTTP exceptions.
+   * 4. Transition Redis upload state to CONSUMED.
+   * 5. Map gRPC errors to standard HTTP exceptions.
    */
   async register(dto: RegisterRequestDto): Promise<CreateUserResponse> {
     const userId = randomUUID();
     const tempKey = dto.tempPhotoKey || dto.temp_photo_key;
     let targetKey: string | undefined;
 
-    // 1. Verify temp avatar file existence in storage if provided
+    // 1. Verify single-use Presigned URL token & Content-Length in storage
     if (tempKey) {
+      // A. Verify single-use status in Redis
+      const uploadStatus = await this.redisService.get(`upload:temp:${tempKey}`);
+      if (!uploadStatus) {
+        throw new BadRequestException(
+          'Avatar upload URL has expired (valid for 2 minutes) or is invalid. Please upload your avatar again.',
+        );
+      }
+
+      if (uploadStatus === 'CONSUMED') {
+        throw new ConflictException(
+          'This avatar upload has already been consumed by another registration. Please upload a fresh photo.',
+        );
+      }
+
+      if (uploadStatus !== 'PENDING') {
+        throw new BadRequestException('Invalid upload status for avatar photo.');
+      }
+
+      // B. Verify actual file existence & strict content-length (1KB to 5MB)
       try {
         const fileCheck = await this.mediaService.checkFileExists(tempKey);
         if (!fileCheck.data.exists) {
           throw new BadRequestException(
             `Avatar file at "${tempKey}" does not exist in storage or has expired. Please upload your avatar again.`,
+          );
+        }
+
+        const size = fileCheck.data.fileSize || 0;
+        const MIN_SIZE = 1024; // 1 KB
+        const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+
+        if (size < MIN_SIZE || size > MAX_SIZE) {
+          this.logger.warn(
+            `Rejected registration: avatar size (${size} bytes) is outside allowed range [1KB, 5MB] for key "${tempKey}"`,
+          );
+          // Immediately purge offending file from MinIO and Redis
+          await this.mediaService.deleteFile(tempKey).catch(() => null);
+          await this.redisService.del(`upload:temp:${tempKey}`).catch(() => null);
+
+          throw new BadRequestException(
+            `Avatar file size must be between 1KB and 5MB. Uploaded size: ${Math.round(size / 1024)} KB.`,
           );
         }
       } catch (checkError: any) {
@@ -64,6 +103,7 @@ export class RegistrationProvider implements OnModuleInit {
           `Could not verify temp avatar existence for ${tempKey}:`,
           checkError,
         );
+        throw new BadRequestException('Failed to verify avatar file in storage.');
       }
 
       // Pre-determined destination path in main avatars directory: avatars/{userId}/avatar.webp
@@ -109,6 +149,12 @@ export class RegistrationProvider implements OnModuleInit {
       const response = await firstValueFrom(
         this.usersServiceClient.createUser(createPayload),
       );
+
+      // 4. Mark single-use upload token as CONSUMED in Redis for 10 minutes (prevents replay attacks)
+      if (tempKey) {
+        await this.redisService.setWithTtl(`upload:temp:${tempKey}`, 'CONSUMED', 600);
+        this.logger.log(`Marked temp avatar key as CONSUMED in Redis: "${tempKey}"`);
+      }
 
       return {
         success: response.success,

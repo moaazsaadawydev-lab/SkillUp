@@ -11,14 +11,16 @@ import {
   DeleteFileResponse,
   UploadCategory,
 } from '@skillup/shared/interfaces';
+import { RedisService } from '@skillup/shared/redis';
 import { MinioService } from './storage/minio.service';
 
 @Injectable()
 export class MediaService {
   private readonly logger = new Logger(MediaService.name);
 
-  // Maximum upload size for avatars: 5 MB
-  private readonly MAX_AVATAR_SIZE = 5 * 1024 * 1024;
+  // Strict content-length boundaries for avatars: 1 KB to 5 MB
+  private readonly MIN_AVATAR_SIZE = 1024; // 1 KB
+  private readonly MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5 MB
 
   // Allowed MIME types for images
   private readonly ALLOWED_IMAGE_MIMES = [
@@ -28,11 +30,15 @@ export class MediaService {
     'image/webp',
   ];
 
-  constructor(private readonly minioService: MinioService) {}
+  constructor(
+    private readonly minioService: MinioService,
+    private readonly redisService: RedisService,
+  ) {}
 
   /**
    * Generates a presigned PUT URL for client-direct upload to MinIO.
    * Performs validation on file extension, MIME type, and size constraints.
+   * Sets single-use PENDING status in Redis with 120s (2 minutes) TTL.
    */
   async getPresignedUploadUrl(
     request: PresignedUploadUrlRequest,
@@ -69,14 +75,18 @@ export class MediaService {
       };
     }
 
-    // 2. Validate file size for avatars
-    if (category === UploadCategory.AVATAR && fileSize > this.MAX_AVATAR_SIZE) {
+    // 2. Validate content-length range (1KB to 5MB) for avatars
+    if (
+      (category === UploadCategory.AVATAR || category === 'AVATAR') &&
+      fileSize > 0 &&
+      (fileSize < this.MIN_AVATAR_SIZE || fileSize > this.MAX_AVATAR_SIZE)
+    ) {
       this.logger.warn(
-        `Rejected presigned URL request: file size ${fileSize} exceeds max avatar limit of 5MB`,
+        `Rejected presigned URL request: file size ${fileSize} is outside allowed range [1KB, 5MB]`,
       );
       return {
         success: false,
-        message: 'File size exceeds the maximum allowed limit of 5MB.',
+        message: 'File size must be between 1KB and 5MB.',
         uploadUrl: '',
         upload_url: '',
         fileKey: '',
@@ -100,7 +110,7 @@ export class MediaService {
     }
 
     const fileKey = `${folder}/${randomUUID()}_${sanitizedFilename}`;
-    const expiresIn = 300; // 5 minutes TTL
+    const expiresIn = 120; // 2 minutes TTL
 
     try {
       const uploadUrl = await this.minioService.getPresignedUploadUrl(
@@ -108,8 +118,15 @@ export class MediaService {
         expiresIn,
       );
 
+      // Register temporary upload key in Redis as PENDING with 120s TTL
+      await this.redisService.setWithTtl(
+        `upload:temp:${fileKey}`,
+        'PENDING',
+        expiresIn,
+      );
+
       this.logger.log(
-        `Generated presigned upload URL for key="${fileKey}", category="${category}", expiresIn=${expiresIn}s`,
+        `Generated presigned upload URL for key="${fileKey}", category="${category}", expiresIn=${expiresIn}s, state=PENDING in Redis`,
       );
 
       return {

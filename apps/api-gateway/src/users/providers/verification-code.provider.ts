@@ -25,7 +25,7 @@ export class VerificationCodeProvider implements OnModuleInit {
 
   constructor(
     @Inject(USERS_SERVICE_NAME) private readonly usersGrpcClient: ClientGrpc,
-  ) {}
+  ) { }
 
   onModuleInit() {
     this.usersServiceClient =
