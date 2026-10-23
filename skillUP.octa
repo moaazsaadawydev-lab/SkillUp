@@ -346,7 +346,7 @@
       "activeTabId": "btab-1792665619314-yjyc",
       "tabs": [
         {
-          "faviconUrl": "http://127.0.0.1:58501/favicon-32x32.png",
+          "faviconUrl": "http://127.0.0.1:52637/favicon-32x32.png",
           "id": "btab-1792653731816-sylc",
           "reloadKey": 1,
           "title": "MinIO Console",
@@ -354,9 +354,9 @@
           "viewportMode": "desktop"
         },
         {
-          "faviconUrl": "http://127.0.0.1:61851/favicon.ico",
+          "faviconUrl": "http://127.0.0.1:52638/favicon.ico",
           "id": "btab-1792665619314-yjyc",
-          "reloadKey": 2,
+          "reloadKey": 0,
           "title": "SkillUp Platform — تقرير نتائج الاختبارات وتحديث معالجة الثغرات الأمنية",
           "url": "D:/Moaz/Programing/Projects/SkillUp/Test Results/index.html",
           "viewportMode": "desktop"
@@ -365,18 +365,8 @@
     },
     "dbSubView": "tables",
     "editor": {
-      "activeTabId": "D:/Moaz/Programing/Projects/SkillUp/README.md",
-      "tabs": [
-        {
-          "fullPath": "D:/Moaz/Programing/Projects/SkillUp/README.md",
-          "id": "D:/Moaz/Programing/Projects/SkillUp/README.md",
-          "isDirty": false,
-          "isPreview": true,
-          "language": "markdown",
-          "relPath": "README.md",
-          "title": "README.md"
-        }
-      ]
+      "activeTabId": null,
+      "tabs": []
     },
     "http": {
       "activeTabId": "req-1791124335830-dy58d",
@@ -510,9 +500,7 @@
     "tables": {
       "activeTab": "users",
       "openTabs": [
-        "users",
-        "outbox_messages",
-        "email_changes_history"
+        "users"
       ]
     },
     "terminal": {
@@ -545,5 +533,5 @@
       ]
     }
   },
-  "updatedAt": "2026-10-22T14:37:52.752Z"
+  "updatedAt": "2026-10-23T09:25:05.415Z"
 }

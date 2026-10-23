@@ -119,7 +119,8 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       MINIO_DEFAULT_BUCKET: skillhub-media
-      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_skillup_change_in_production}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -154,7 +155,8 @@ services:
       REDIS_PORT: 6379
       RABBITMQ_URI: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672
       RABBITMQ_USERS_QUEUE: users_queue
-      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_skillup_change_in_production}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
