@@ -44,18 +44,21 @@ export class IpRateLimitGuard implements CanActivate {
     const prefix = options.prefix || 'global';
     const ipKey = `ratelimit:${prefix}:ip:${clientIp}`;
 
-    // 2. Construct Layer B (Email Rate Limit) key if an email is present in request body
+    // 2. Construct Layer B (Target Account Rate Limit) key if an email or identifier is present in request body
     let emailKey: string | null = null;
     let emailHash: string | null = null;
-    if (
-      req.body &&
-      typeof req.body.email === 'string' &&
-      req.body.email.trim().length > 0
-    ) {
-      const normalizedEmail = req.body.email.trim().toLowerCase();
+    const rawTarget =
+      req.body && typeof req.body.email === 'string' && req.body.email.trim().length > 0
+        ? req.body.email
+        : req.body && typeof req.body.identifier === 'string' && req.body.identifier.trim().length > 0
+        ? req.body.identifier
+        : null;
+
+    if (rawTarget) {
+      const normalizedTarget = rawTarget.trim().toLowerCase();
       emailHash = crypto
         .createHash('sha256')
-        .update(normalizedEmail)
+        .update(normalizedTarget)
         .digest('hex')
         .substring(0, 16);
       emailKey = `ratelimit:${prefix}:email:${emailHash}`;

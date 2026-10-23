@@ -1,9 +1,19 @@
-import { ExecutionContext, HttpException, HttpStatus, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IpRateLimitGuard } from '../../src/common/guards/ip-rate-limit.guard';
 import { RegistrationProvider } from '../../src/users/providers/registration.provider';
 import { AccountVerificationProvider } from '../../src/users/providers/account-verification.provider';
 import { VerificationCodeProvider } from '../../src/users/providers/verification-code.provider';
+import { LoginProvider } from '../../src/users/providers/login.provider';
 import { UploadUrlProvider } from '../../src/media/providers/upload-url.provider';
 import { FileQueryProvider } from '../../src/media/providers/file-query.provider';
 import { MockRedis, createMockUsersServiceClient, createMockMediaServiceClient } from '../test-helpers';
@@ -383,6 +393,97 @@ describe('Unit Tests: Guards & Providers Logic', () => {
       await expect(
         provider.sendVerificationCode({ email: 'cooldown@skillup.com' }),
       ).rejects.toThrow(HttpException);
+    });
+  });
+
+  describe('LoginProvider', () => {
+    let provider: LoginProvider;
+    let mockUsersGrpc: any;
+    let mockClient: any;
+
+    beforeEach(() => {
+      mockClient = createMockUsersServiceClient();
+      mockUsersGrpc = {
+        getService: () => mockClient,
+      };
+      provider = new LoginProvider(mockUsersGrpc as any);
+      provider.onModuleInit();
+    });
+
+    it('Happy Path: should authenticate user and return tokens', async () => {
+      const result = await provider.login(
+        { identifier: 'student@skillup.com', password: 'Password123!' },
+        { ipAddress: '127.0.0.1', userAgent: 'JestTest' },
+      );
+      expect(result.success).toBe(true);
+      expect(result.accessToken).toBe('mock-jwt-access-token-login');
+      expect(result.refreshToken).toBe('mock-refresh-token-login-hex');
+      expect(result.user).toBeDefined();
+      expect(result.user.email).toBe('student@skillup.com');
+    });
+
+    it('Lockout Enforcement: should map gRPC RESOURCE_EXHAUSTED to 429 Too Many Requests with Retry-After', async () => {
+      jest.spyOn(mockClient, 'login').mockReturnValueOnce(
+        throwError(() => ({
+          code: 8,
+          details: 'Too many failed login attempts. Please try again after 15 minutes. [Retry-After: 900]',
+        })),
+      );
+
+      await expect(
+        provider.login(
+          { identifier: 'locked@skillup.com', password: 'WrongPassword123!' },
+          { ipAddress: '127.0.0.1', userAgent: 'JestTest' },
+        ),
+      ).rejects.toThrow(HttpException);
+    });
+
+    it('Invalid Credentials: should map gRPC UNAUTHENTICATED to 401 UnauthorizedException', async () => {
+      jest.spyOn(mockClient, 'login').mockReturnValueOnce(
+        throwError(() => ({
+          code: 16,
+          details: 'Invalid credentials',
+        })),
+      );
+
+      await expect(
+        provider.login(
+          { identifier: 'student@skillup.com', password: 'WrongPassword!' },
+          { ipAddress: '127.0.0.1', userAgent: 'JestTest' },
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('Unverified Account: should map gRPC FAILED_PRECONDITION to 400 BadRequestException', async () => {
+      jest.spyOn(mockClient, 'login').mockReturnValueOnce(
+        throwError(() => ({
+          code: 9,
+          details: 'Account is not verified. Please verify your email first.',
+        })),
+      );
+
+      await expect(
+        provider.login(
+          { identifier: 'unverified@skillup.com', password: 'Password123!' },
+          { ipAddress: '127.0.0.1', userAgent: 'JestTest' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('Suspended Account: should map gRPC PERMISSION_DENIED to 403 ForbiddenException', async () => {
+      jest.spyOn(mockClient, 'login').mockReturnValueOnce(
+        throwError(() => ({
+          code: 7,
+          details: 'Account has been suspended.',
+        })),
+      );
+
+      await expect(
+        provider.login(
+          { identifier: 'suspended@skillup.com', password: 'Password123!' },
+          { ipAddress: '127.0.0.1', userAgent: 'JestTest' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

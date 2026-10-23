@@ -9,6 +9,7 @@ import { AuthService } from '../../src/users/auth.service';
 import { RegistrationProvider } from '../../src/users/providers/registration.provider';
 import { AccountVerificationProvider } from '../../src/users/providers/account-verification.provider';
 import { VerificationCodeProvider } from '../../src/users/providers/verification-code.provider';
+import { LoginProvider } from '../../src/users/providers/login.provider';
 import { MediaController } from '../../src/media/media.controller';
 import { MediaService } from '../../src/media/media.service';
 import { UploadUrlProvider } from '../../src/media/providers/upload-url.provider';
@@ -45,6 +46,7 @@ describe('Integration Tests: Edge Cases, Security & XSS Injections', () => {
         RegistrationProvider,
         AccountVerificationProvider,
         VerificationCodeProvider,
+        LoginProvider,
         UploadUrlProvider,
         FileQueryProvider,
         {
@@ -310,6 +312,92 @@ describe('Integration Tests: Edge Cases, Security & XSS Injections', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.message).toContain('already active');
+    });
+  });
+
+  describe('Login Security & Error Handling', () => {
+    it('Wrong password: should return 401 Unauthorized with remaining attempts count', async () => {
+      jest.spyOn(mockUsersClient, 'login').mockReturnValueOnce(
+        throwError(() => ({
+          code: 16,
+          details: 'Invalid credentials. You have 4 attempts remaining.',
+        })),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/login')
+        .send({
+          identifier: 'user@skillup.com',
+          password: 'WrongPassword123!',
+        })
+        .expect(401);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.statusCode).toBe(401);
+      expect(response.body.message).toContain('4 attempts remaining');
+    });
+
+    it('Non-existent user: should return 401 Unauthorized (timing attack defense)', async () => {
+      jest.spyOn(mockUsersClient, 'login').mockReturnValueOnce(
+        throwError(() => ({
+          code: 16,
+          details: 'Invalid credentials',
+        })),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/login')
+        .send({
+          identifier: 'nonexistent@skillup.com',
+          password: 'Password123!',
+        })
+        .expect(401);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.statusCode).toBe(401);
+      expect(response.body.message).toBe('Invalid credentials');
+    });
+
+    it('Inactive user (PENDING): should return 400 Bad Request', async () => {
+      jest.spyOn(mockUsersClient, 'login').mockReturnValueOnce(
+        throwError(() => ({
+          code: 9,
+          details: 'Account is not verified. Please verify your email first.',
+        })),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/login')
+        .send({
+          identifier: 'pending@skillup.com',
+          password: 'Password123!',
+        })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.statusCode).toBe(400);
+      expect(response.body.message).toContain('not verified');
+    });
+
+    it('Suspended user (BLOCKED): should return 403 Forbidden', async () => {
+      jest.spyOn(mockUsersClient, 'login').mockReturnValueOnce(
+        throwError(() => ({
+          code: 7,
+          details: 'Account has been suspended.',
+        })),
+      );
+
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/login')
+        .send({
+          identifier: 'blocked@skillup.com',
+          password: 'Password123!',
+        })
+        .expect(403);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.statusCode).toBe(403);
+      expect(response.body.message).toContain('suspended');
     });
   });
 });

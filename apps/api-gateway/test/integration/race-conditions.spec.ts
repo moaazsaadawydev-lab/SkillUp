@@ -9,6 +9,7 @@ import { AuthService } from '../../src/users/auth.service';
 import { RegistrationProvider } from '../../src/users/providers/registration.provider';
 import { AccountVerificationProvider } from '../../src/users/providers/account-verification.provider';
 import { VerificationCodeProvider } from '../../src/users/providers/verification-code.provider';
+import { LoginProvider } from '../../src/users/providers/login.provider';
 import { MediaController } from '../../src/media/media.controller';
 import { MediaService } from '../../src/media/media.service';
 import { UploadUrlProvider } from '../../src/media/providers/upload-url.provider';
@@ -45,6 +46,7 @@ describe('Integration Tests: Race Conditions & Concurrency Controls', () => {
         RegistrationProvider,
         AccountVerificationProvider,
         VerificationCodeProvider,
+        LoginProvider,
         UploadUrlProvider,
         FileQueryProvider,
         {
@@ -251,6 +253,49 @@ describe('Integration Tests: Race Conditions & Concurrency Controls', () => {
         expect(t.body.statusCode).toBe(429);
         expect(t.headers['retry-after']).toBe('60');
       }
+    });
+  });
+
+  describe('Race Condition 5: Atomic Session Management & 5-Device Eviction', () => {
+    it('should evict the oldest session when 6th session is registered for the same user', async () => {
+      const userId = 'multi-device-user-uuid';
+
+      // Simulate 5 logins for 5 devices
+      for (let i = 1; i <= 5; i++) {
+        await mockRedis.saveSessionWithEviction({
+          sessionId: `session-device-${i}`,
+          userId,
+          hashedRefreshToken: `hashed-token-${i}`,
+          ipAddress: `192.168.1.${i}`,
+          userAgent: `Device-${i}`,
+        });
+      }
+
+      // Verify all 5 sessions exist
+      let activeSessions = await mockRedis.zrange(`user_sessions:${userId}`, 0, -1);
+      expect(activeSessions.length).toBe(5);
+      expect(await mockRedis.exists('session:session-device-1')).toBe(1);
+
+      // Now add 6th session
+      await mockRedis.saveSessionWithEviction({
+        sessionId: 'session-device-6',
+        userId,
+        hashedRefreshToken: 'hashed-token-6',
+        ipAddress: '192.168.1.6',
+        userAgent: 'Device-6',
+      });
+
+      // Total active sessions must remain exactly 5
+      activeSessions = await mockRedis.zrange(`user_sessions:${userId}`, 0, -1);
+      expect(activeSessions.length).toBe(5);
+
+      // The oldest session (session-device-1) must have been evicted and deleted
+      expect(activeSessions).not.toContain('session-device-1');
+      expect(await mockRedis.exists('session:session-device-1')).toBe(0);
+
+      // Newest session must be present
+      expect(activeSessions).toContain('session-device-6');
+      expect(await mockRedis.exists('session:session-device-6')).toBe(1);
     });
   });
 });

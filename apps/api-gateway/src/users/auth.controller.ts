@@ -13,6 +13,7 @@ import { AuthService } from './auth.service';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { VerifyAccountDto } from './dto/verify-account.dto';
 import { SendVerificationCodeDto } from './dto/send-verification-code.dto';
+import { LoginDto } from './dto/login.dto';
 import { RateLimit } from '../common';
 
 @Controller('users/auth')
@@ -100,6 +101,58 @@ export class AuthController {
   ) {
     try {
       return await this.authService.sendVerificationCode(dto);
+    } catch (error: any) {
+      if (
+        error instanceof HttpException &&
+        error.getStatus() === HttpStatus.TOO_MANY_REQUESTS
+      ) {
+        const responseBody = error.getResponse() as any;
+        if (responseBody?.retryAfter) {
+          res.setHeader('Retry-After', responseBody.retryAfter.toString());
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * POST /api/v1/users/auth/login
+   * Dual-identifier login (email or username) with brute-force lockout and session issuance.
+   * Rate Limited: Max 5 login attempts per 15 minutes per IP/Target.
+   */
+  @Post('login')
+  @RateLimit({ limit: 5, ttl: 900, prefix: 'login' })
+  @HttpCode(HttpStatus.OK)
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const ipAddress = req.ip || req.socket?.remoteAddress || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'Unknown-Device';
+
+    try {
+      const result = await this.authService.login(dto, { ipAddress, userAgent });
+
+      // Set HttpOnly refresh token cookie
+      if (result.refreshToken) {
+        res.cookie('refresh_token', result.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/api/v1/users/auth',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+      }
+
+      return {
+        success: true,
+        message: result.message || 'Logged in successfully',
+        data: {
+          accessToken: result.accessToken,
+          user: result.user,
+        },
+      };
     } catch (error: any) {
       if (
         error instanceof HttpException &&

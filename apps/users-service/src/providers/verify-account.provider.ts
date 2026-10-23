@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { RpcException } from '@nestjs/microservices';
 import { status } from '@grpc/grpc-js';
 import { DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { User } from '@skillup/shared/entities';
@@ -194,40 +195,18 @@ export class VerifyAccountProvider {
     );
 
     const refreshToken = crypto.randomBytes(32).toString('hex');
-    const hashedRefreshToken = crypto
-      .createHash('sha256')
-      .update(refreshToken)
-      .digest('hex');
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
 
-    const sessionKey = `session:${sessionId}`;
-    const userSessionsKey = `user_sessions:${user.id}`;
-    const now = Date.now();
-
-    // Store session hash in Redis with 7 days TTL (604800s)
-    await this.redisService.hset(sessionKey, {
+    // Persist session atomically and enforce 5-device limit via Redis Lua script
+    await this.redisService.saveSessionWithEviction({
+      sessionId,
       userId: user.id,
       hashedRefreshToken,
       ipAddress,
       userAgent,
-      createdAt: new Date().toISOString(),
+      maxDevices: 5,
+      ttlSeconds: 7 * 24 * 60 * 60,
     });
-    await this.redisService.expire(sessionKey, 7 * 24 * 60 * 60);
-
-    // Add session to user's sorted set
-    await this.redisService.zadd(userSessionsKey, now, sessionId);
-    await this.redisService.expire(userSessionsKey, 7 * 24 * 60 * 60);
-
-    // Enforce max 5 devices / sessions
-    const staleSessions = await this.redisService.zrange(userSessionsKey, 0, -6);
-    if (staleSessions && staleSessions.length > 0) {
-      this.logger.debug(
-        `Purging ${staleSessions.length} stale session(s) for user ${user.id}`,
-      );
-      await Promise.all(
-        staleSessions.map((staleId) => this.redisService.del(`session:${staleId}`)),
-      );
-      await this.redisService.zremRangeByRank(userSessionsKey, 0, -6);
-    }
 
     this.logger.log(
       `Account verified and session issued for user ${user.id} (${normalizedEmail})`,

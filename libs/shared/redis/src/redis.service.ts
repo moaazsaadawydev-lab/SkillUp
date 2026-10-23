@@ -16,6 +16,109 @@ export class RedisService implements OnModuleDestroy {
   }
 
   /**
+   * Execute raw Redis Lua scripts atomically
+   */
+  async eval(
+    script: string,
+    numKeys: number,
+    ...args: (string | number)[]
+  ): Promise<any> {
+    return this.client.eval(script, numKeys, ...args);
+  }
+
+  /**
+   * Atomic session management executing Redis Lua script:
+   * 1. Save session hash (session:{sessionId}) with TTL (default 7 days).
+   * 2. Add sessionId to user sessions ZSet (user_sessions:{userId}).
+   * 3. Evict excess sessions beyond maxDevices (default 5) in a single roundtrip.
+   */
+  async saveSessionWithEviction(params: {
+    sessionId: string;
+    userId: string;
+    hashedRefreshToken: string;
+    ipAddress: string;
+    userAgent: string;
+    createdAt?: string;
+    maxDevices?: number;
+    ttlSeconds?: number;
+  }): Promise<number> {
+    const {
+      sessionId,
+      userId,
+      hashedRefreshToken,
+      ipAddress,
+      userAgent,
+      createdAt = new Date().toISOString(),
+      maxDevices = 5,
+      ttlSeconds = 7 * 24 * 60 * 60, // 604800 = 7 days
+    } = params;
+
+    const sessionKey = `session:${sessionId}`;
+    const userSessionsKey = `user_sessions:${userId}`;
+    const score = Date.now();
+
+    const luaScript = `
+-- KEYS[1]: sessionKey ("session:" .. sessionId)
+-- KEYS[2]: userSessionsKey ("user_sessions:" .. userId)
+-- ARGV[1]: userId
+-- ARGV[2]: hashedRefreshToken
+-- ARGV[3]: ipAddress
+-- ARGV[4]: userAgent
+-- ARGV[5]: createdAt
+-- ARGV[6]: score (current timestamp ms)
+-- ARGV[7]: ttlSeconds (604800 = 7 days)
+-- ARGV[8]: maxDevices (5)
+-- ARGV[9]: sessionId
+
+-- 1. Save session hash
+redis.call('HSET', KEYS[1], 
+  'userId', ARGV[1], 
+  'hashedRefreshToken', ARGV[2], 
+  'ipAddress', ARGV[3], 
+  'userAgent', ARGV[4], 
+  'createdAt', ARGV[5]
+)
+redis.call('EXPIRE', KEYS[1], ARGV[7])
+
+-- 2. Add to user sessions ZSet
+redis.call('ZADD', KEYS[2], ARGV[6], ARGV[9])
+redis.call('EXPIRE', KEYS[2], ARGV[7])
+
+-- 3. Evict excess sessions beyond maxDevices (rank 0 to -(maxDevices + 1))
+local totalSessions = redis.call('ZCARD', KEYS[2])
+local maxAllowed = tonumber(ARGV[8])
+
+if totalSessions > maxAllowed then
+  local excessCount = totalSessions - maxAllowed
+  -- Get oldest sessions to delete
+  local staleSessions = redis.call('ZRANGE', KEYS[2], 0, excessCount - 1)
+  for _, sid in ipairs(staleSessions) do
+    redis.call('DEL', 'session:' .. sid)
+  end
+  redis.call('ZREMRANGEBYRANK', KEYS[2], 0, excessCount - 1)
+end
+
+return 1
+    `;
+
+    return this.eval(
+      luaScript,
+      2,
+      sessionKey,
+      userSessionsKey,
+      userId,
+      hashedRefreshToken,
+      ipAddress,
+      userAgent,
+      createdAt,
+      score,
+      ttlSeconds,
+      maxDevices,
+      sessionId,
+    );
+  }
+
+  /**
    * Create an atomic Pipeline command runner
    */
   pipeline(): ChainableCommander {

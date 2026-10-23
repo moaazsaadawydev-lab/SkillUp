@@ -8,6 +8,7 @@ import { AuthService } from '../../src/users/auth.service';
 import { RegistrationProvider } from '../../src/users/providers/registration.provider';
 import { AccountVerificationProvider } from '../../src/users/providers/account-verification.provider';
 import { VerificationCodeProvider } from '../../src/users/providers/verification-code.provider';
+import { LoginProvider } from '../../src/users/providers/login.provider';
 import { MediaController } from '../../src/media/media.controller';
 import { MediaService } from '../../src/media/media.service';
 import { UploadUrlProvider } from '../../src/media/providers/upload-url.provider';
@@ -44,6 +45,7 @@ describe('Integration Tests: Happy Paths for All Endpoints', () => {
         RegistrationProvider,
         AccountVerificationProvider,
         VerificationCodeProvider,
+        LoginProvider,
         UploadUrlProvider,
         FileQueryProvider,
         {
@@ -229,6 +231,48 @@ describe('Integration Tests: Happy Paths for All Endpoints', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.message).toContain('verification code has been sent');
+    });
+  });
+
+  describe('8. POST /api/v1/users/auth/login', () => {
+    it('Happy Path: should authenticate via email and return 200 OK + accessToken + Set-Cookie refresh_token', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/login')
+        .send({
+          identifier: 'happy.student@skillup.com',
+          password: 'Password123!',
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toContain('Logged in successfully');
+      expect(response.body.data.accessToken).toBeDefined();
+      expect(response.body.data.user.email).toBe('happy.student@skillup.com');
+
+      const rawCookies = response.headers['set-cookie'];
+      const cookieArray = Array.isArray(rawCookies) ? rawCookies : [rawCookies];
+      expect(
+        cookieArray.some(
+          (c: any) =>
+            typeof c === 'string' &&
+            c.includes('refresh_token=') &&
+            c.includes('HttpOnly'),
+        ),
+      ).toBe(true);
+    });
+
+    it('Happy Path: should authenticate via username and return 200 OK', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/login')
+        .send({
+          identifier: 'happystudent',
+          password: 'Password123!',
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.accessToken).toBeDefined();
+      expect(response.body.data.user.username).toBe('happystudent');
     });
   });
 });

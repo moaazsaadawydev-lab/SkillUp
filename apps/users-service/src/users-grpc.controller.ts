@@ -17,6 +17,8 @@ import {
   ForgotPasswordRequest,
   ResetPasswordRequest,
   ActionResponse,
+  LoginRequest,
+  LoginResponse,
 } from '@skillup/shared/interfaces';
 import { UsersService } from './users.service';
 
@@ -44,6 +46,14 @@ export class UsersGrpcController implements UsersServiceController {
   ): Promise<ActionResponse> {
     this.logger.debug(`gRPC SendVerificationCode called for email: ${request.email}`);
     return this.usersService.sendVerificationCode(request);
+  }
+
+  @GrpcMethod(USERS_SERVICE_NAME, 'Login')
+  async login(request: LoginRequest): Promise<LoginResponse> {
+    this.logger.debug(
+      `gRPC Login called for identifier: ${request.identifier}`,
+    );
+    return this.usersService.login(request);
   }
 
   @GrpcMethod(USERS_SERVICE_NAME, 'FindUserById')

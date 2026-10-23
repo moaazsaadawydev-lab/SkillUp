@@ -14,6 +14,7 @@ import {
   RegistrationProvider,
   AccountVerificationProvider,
   VerificationCodeProvider,
+  LoginProvider,
 } from './providers';
 
 @Module({
@@ -53,6 +54,7 @@ import {
     RegistrationProvider,
     AccountVerificationProvider,
     VerificationCodeProvider,
+    LoginProvider,
   ],
   exports: [
     ClientsModule,
@@ -60,6 +62,7 @@ import {
     RegistrationProvider,
     AccountVerificationProvider,
     VerificationCodeProvider,
+    LoginProvider,
   ],
 })
 export class UsersModule {}

@@ -142,10 +142,11 @@ export class MockRedis {
   }
 
   // Lua Script Evaluation Simulation
-  async eval(script: string, numKeys: number, key: string, arg1?: string): Promise<number> {
+  async eval(script: string, numKeys: number, ...args: any[]): Promise<number> {
     if (script.includes('INCR')) {
+      const key = String(args[0]);
       const current = await this.incr(key);
-      const ttlSec = arg1 ? parseInt(arg1, 10) : 900;
+      const ttlSec = args[1] ? parseInt(String(args[1]), 10) : 900;
       if (current === 1) {
         await this.expire(key, ttlSec);
       } else {
@@ -155,6 +156,92 @@ export class MockRedis {
         }
       }
       return current;
+    }
+
+    if (script.includes('totalSessions > maxAllowed')) {
+      const sessionKey = String(args[0]);
+      const userSessionsKey = String(args[1]);
+      const userId = String(args[2]);
+      const hashedRefreshToken = String(args[3]);
+      const ipAddress = String(args[4]);
+      const userAgent = String(args[5]);
+      const createdAt = String(args[6]);
+      const score = Number(args[7]);
+      const ttlSeconds = Number(args[8]);
+      const maxDevices = Number(args[9]);
+      const sessionId = String(args[10]);
+
+      await this.hset(sessionKey, {
+        userId,
+        hashedRefreshToken,
+        ipAddress,
+        userAgent,
+        createdAt,
+      });
+      await this.expire(sessionKey, ttlSeconds);
+      await this.zadd(userSessionsKey, score, sessionId);
+      await this.expire(userSessionsKey, ttlSeconds);
+
+      const totalSessions = (await this.zrange(userSessionsKey, 0, -1)).length;
+      if (totalSessions > maxDevices) {
+        const excessCount = totalSessions - maxDevices;
+        const staleSessions = await this.zrange(userSessionsKey, 0, excessCount - 1);
+        for (const sid of staleSessions) {
+          await this.del(`session:${sid}`);
+        }
+        await this.zremRangeByRank(userSessionsKey, 0, excessCount - 1);
+      }
+      return 1;
+    }
+
+    return 1;
+  }
+
+  async saveSessionWithEviction(params: {
+    sessionId: string;
+    userId: string;
+    hashedRefreshToken: string;
+    ipAddress: string;
+    userAgent: string;
+    createdAt?: string;
+    maxDevices?: number;
+    ttlSeconds?: number;
+  }): Promise<number> {
+    const {
+      sessionId,
+      userId,
+      hashedRefreshToken,
+      ipAddress,
+      userAgent,
+      createdAt = new Date().toISOString(),
+      maxDevices = 5,
+      ttlSeconds = 7 * 24 * 60 * 60,
+    } = params;
+
+    const sessionKey = `session:${sessionId}`;
+    const userSessionsKey = `user_sessions:${userId}`;
+    const score = Date.now();
+
+    await this.hset(sessionKey, {
+      userId,
+      hashedRefreshToken,
+      ipAddress,
+      userAgent,
+      createdAt,
+    });
+    await this.expire(sessionKey, ttlSeconds);
+
+    await this.zadd(userSessionsKey, score, sessionId);
+    await this.expire(userSessionsKey, ttlSeconds);
+
+    const totalSessions = (await this.zrange(userSessionsKey, 0, -1)).length;
+    if (totalSessions > maxDevices) {
+      const excessCount = totalSessions - maxDevices;
+      const staleSessions = await this.zrange(userSessionsKey, 0, excessCount - 1);
+      for (const sid of staleSessions) {
+        await this.del(`session:${sid}`);
+      }
+      await this.zremRangeByRank(userSessionsKey, 0, excessCount - 1);
     }
     return 1;
   }
@@ -213,6 +300,26 @@ export function createMockUsersServiceClient() {
       of({
         success: true,
         message: 'A new verification code has been sent to your email address.',
+      }),
+    ),
+    login: jest.fn().mockImplementation((payload) =>
+      of({
+        success: true,
+        message: 'Logged in successfully',
+        data: {
+          accessToken: 'mock-jwt-access-token-login',
+          refreshToken: 'mock-refresh-token-login-hex',
+          user: {
+            id: 'mock-user-uuid-1234',
+            email: payload.identifier?.includes('@') ? payload.identifier : 'mockuser@skillup.com',
+            username: payload.identifier?.includes('@') ? 'mockuser' : payload.identifier,
+            role: 'STUDENT',
+            status: 'ACTIVE',
+            profilePhoto: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
       }),
     ),
   };

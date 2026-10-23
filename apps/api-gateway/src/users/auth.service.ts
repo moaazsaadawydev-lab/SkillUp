@@ -3,12 +3,15 @@ import { CreateUserResponse } from '@skillup/shared/interfaces';
 import { RegisterRequestDto } from './dto/register-request.dto';
 import { VerifyAccountDto } from './dto/verify-account.dto';
 import { SendVerificationCodeDto } from './dto/send-verification-code.dto';
+import { LoginDto } from './dto/login.dto';
 import {
   RegistrationProvider,
   AccountVerificationProvider,
   VerificationCodeProvider,
+  LoginProvider,
   ClientConnectionInfo,
   VerifyAccountResult,
+  LoginResult,
 } from './providers';
 
 /**
@@ -22,6 +25,7 @@ export class AuthService {
     private readonly registrationProvider: RegistrationProvider,
     private readonly accountVerificationProvider: AccountVerificationProvider,
     private readonly verificationCodeProvider: VerificationCodeProvider,
+    private readonly loginProvider: LoginProvider,
   ) {}
 
   /**
@@ -46,5 +50,15 @@ export class AuthService {
    */
   async sendVerificationCode(dto: SendVerificationCodeDto) {
     return this.verificationCodeProvider.sendVerificationCode(dto);
+  }
+
+  /**
+   * User login delegation
+   */
+  async login(
+    dto: LoginDto,
+    clientInfo: ClientConnectionInfo,
+  ): Promise<LoginResult> {
+    return this.loginProvider.login(dto, clientInfo);
   }
 }

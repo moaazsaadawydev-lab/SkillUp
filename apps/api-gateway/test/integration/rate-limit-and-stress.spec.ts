@@ -9,6 +9,7 @@ import { AuthService } from '../../src/users/auth.service';
 import { RegistrationProvider } from '../../src/users/providers/registration.provider';
 import { AccountVerificationProvider } from '../../src/users/providers/account-verification.provider';
 import { VerificationCodeProvider } from '../../src/users/providers/verification-code.provider';
+import { LoginProvider } from '../../src/users/providers/login.provider';
 import { MediaController } from '../../src/media/media.controller';
 import { MediaService } from '../../src/media/media.service';
 import { UploadUrlProvider } from '../../src/media/providers/upload-url.provider';
@@ -45,6 +46,7 @@ describe('Integration Tests: Edge IP Rate Limiter, Lockouts & High-Load Stress',
         RegistrationProvider,
         AccountVerificationProvider,
         VerificationCodeProvider,
+        LoginProvider,
         UploadUrlProvider,
         FileQueryProvider,
         {
@@ -296,6 +298,71 @@ describe('Integration Tests: Edge IP Rate Limiter, Lockouts & High-Load Stress',
       expect(lockedRes.body.statusCode).toBe(429);
       expect(lockedRes.body.message).toContain('Too many failed verification attempts');
       expect(lockedRes.headers['retry-after']).toBe('900');
+    });
+  });
+
+  describe('Brute-Force Login Lockout (5 Failed Attempts / 15-Minute Freeze)', () => {
+    it('should track failed password attempts and lock account for 15 minutes after 5 failures', async () => {
+      let attempts = 0;
+      mockUsersClient.login.mockImplementation(() => {
+        attempts++;
+        if (attempts < 5) {
+          const remaining = 5 - attempts;
+          return throwError(() => ({
+            code: 16,
+            details: `Invalid credentials. You have ${remaining} attempts remaining.`,
+          }));
+        }
+        return throwError(() => ({
+          code: 8,
+          details: 'Too many failed login attempts. Please try again after 15 minutes. [Retry-After: 900]',
+        }));
+      });
+
+      // Submit 4 failed attempts from distinct IPs
+      for (let i = 1; i <= 4; i++) {
+        const res = await request(app.getHttpServer())
+          .post('/api/v1/users/auth/login')
+          .set('x-forwarded-for', `10.201.0.${i}`)
+          .send({
+            identifier: 'locked.target@skillup.com',
+            password: 'WrongPassword123!',
+          });
+
+        expect(res.status).toBe(401);
+        expect(res.body.message).toContain('attempts remaining');
+      }
+
+      // 5th attempt triggers lockout
+      const fifthRes = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/login')
+        .set('x-forwarded-for', '10.201.0.5')
+        .send({
+          identifier: 'locked.target@skillup.com',
+          password: 'WrongPassword123!',
+        });
+
+      expect(fifthRes.status).toBe(429);
+      expect(fifthRes.body.statusCode).toBe(429);
+      expect(fifthRes.body.message).toContain('Too many failed login attempts');
+      expect(fifthRes.headers['retry-after']).toBe('900');
+
+      // 6th attempt is blocked immediately by the 15-minute freeze
+      const sixthRes = await request(app.getHttpServer())
+        .post('/api/v1/users/auth/login')
+        .set('x-forwarded-for', '10.201.0.6')
+        .send({
+          identifier: 'locked.target@skillup.com',
+          password: 'WrongPassword123!',
+        });
+
+      expect(sixthRes.status).toBe(429);
+      expect(sixthRes.body.statusCode).toBe(429);
+      expect(
+        sixthRes.body.message.includes('Too many failed login attempts') ||
+          sixthRes.body.message.includes('Too many requests targeting this account'),
+      ).toBe(true);
+      expect(sixthRes.headers['retry-after']).toBe('900');
     });
   });
 

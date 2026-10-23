@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { RegisterRequestDto } from '../../src/users/dto/register-request.dto';
 import { VerifyAccountDto } from '../../src/users/dto/verify-account.dto';
 import { SendVerificationCodeDto } from '../../src/users/dto/send-verification-code.dto';
+import { LoginDto } from '../../src/users/dto/login.dto';
 import { GetPresignedUrlDto } from '../../src/media/dto/get-presigned-url.dto';
 
 describe('Unit Tests: DTO Validation & Input Hardening', () => {
@@ -238,6 +239,56 @@ describe('Unit Tests: DTO Validation & Input Hardening', () => {
       });
       const errorsOver = await validate(dtoOver5MB);
       expect(errorsOver.some((e) => e.property === 'fileSize')).toBe(true);
+    });
+  });
+
+  describe('LoginDto', () => {
+    it('Happy Path: should validate successfully with clean email identifier and strong password', async () => {
+      const dto = plainToInstance(LoginDto, {
+        identifier: 'student@skillup.com',
+        password: 'Password123!',
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('Happy Path: should validate successfully with clean username identifier', async () => {
+      const dto = plainToInstance(LoginDto, {
+        identifier: 'student123',
+        password: 'Password123!',
+      });
+      const errors = await validate(dto);
+      expect(errors.length).toBe(0);
+    });
+
+    it('Edge Case: should fail validation if identifier or password are empty or missing', async () => {
+      const dto = plainToInstance(LoginDto, {});
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThanOrEqual(2);
+      const fields = errors.map((e) => e.property);
+      expect(fields).toContain('identifier');
+      expect(fields).toContain('password');
+    });
+
+    it('Edge Case: should fail validation if password is shorter than 8 characters', async () => {
+      const dto = plainToInstance(LoginDto, {
+        identifier: 'student@skillup.com',
+        password: 'short',
+      });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'password')).toBe(true);
+      expect(
+        JSON.stringify(errors.find((e) => e.property === 'password')?.constraints),
+      ).toContain('at least 8 characters');
+    });
+
+    it('Edge Case: should fail validation if identifier exceeds 255 characters', async () => {
+      const dto = plainToInstance(LoginDto, {
+        identifier: 'a'.repeat(256),
+        password: 'Password123!',
+      });
+      const errors = await validate(dto);
+      expect(errors.some((e) => e.property === 'identifier')).toBe(true);
     });
   });
 });

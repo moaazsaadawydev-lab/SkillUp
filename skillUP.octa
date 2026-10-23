@@ -19,7 +19,7 @@
   },
   "httpClient": {
     "activeEnvironmentId": "",
-    "activeTabId": "req-1791124335830-dy58d",
+    "activeTabId": "req-1792668100000-lgn01",
     "collections": [
       {
         "id": "col-1791123224571-usq52",
@@ -30,7 +30,7 @@
             "isOpen": true,
             "items": [
               {
-                "bodyContent": "{\n  \"username\": \"moazsaadawy\",\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"tempPhotoKey\": \"temp_uploads/avatars/78d1682c-01d3-442a-ab2a-5af56284d370_avatar.png\",\n  \"password\": \"Password123!\",\n  \"cropX\": 10,\n  \"cropY\": 460,\n  \"cropWidth\": 1790,\n  \"cropHeight\": 1790\n}\n",
+                "bodyContent": "{\n  \"username\": \"moazsaadawy\",\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"tempPhotoKey\": \"temp_uploads/avatars/72ef8713-068e-4142-a2a6-5213c96983e9_avatar.png\",\n  \"password\": \"Password123!\",\n  \"cropX\": 10,\n  \"cropY\": 460,\n  \"cropWidth\": 1790,\n  \"cropHeight\": 1790\n}\n",
                 "bodyFormData": [],
                 "bodyType": "json",
                 "bodyUrlEncoded": [],
@@ -45,7 +45,7 @@
                 "url": "{{baseURL}}/users/auth/register"
               },
               {
-                "bodyContent": "{\n  \"email\":\"moaazseadawy@gmail.com\",\n  \"code\":\"846288\"\n}",
+                "bodyContent": "{\n  \"email\":\"moaazseadawy@gmail.com\",\n  \"code\":\"551790\"\n}",
                 "bodyFormData": [],
                 "bodyType": "json",
                 "bodyUrlEncoded": [],
@@ -73,6 +73,27 @@
                 "params": [],
                 "type": "request",
                 "url": "{{baseURL}}/users/auth/send-verification-code"
+              },
+              {
+                "bodyContent": "{\n  \"identifier\": \"moaazseadawy@gmail.com\",\n  \"password\": \"Password123!\"\n}\n",
+                "bodyFormData": [],
+                "bodyType": "json",
+                "bodyUrlEncoded": [],
+                "disabledAutoHeaders": [],
+                "headers": [
+                  {
+                    "enabled": true,
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "id": "req-1792668100000-lgn01",
+                "isDirty": false,
+                "method": "POST",
+                "name": "Login",
+                "params": [],
+                "type": "request",
+                "url": "{{baseURL}}/users/auth/login"
               }
             ],
             "name": "Users",
@@ -138,12 +159,12 @@
                   {
                     "enabled": true,
                     "key": "X-Amz-Credential",
-                    "value": "minioadmin/20261022/us-east-1/s3/aws4_request"
+                    "value": "minioadmin/20261023/us-east-1/s3/aws4_request"
                   },
                   {
                     "enabled": true,
                     "key": "X-Amz-Date",
-                    "value": "20261022T072634Z"
+                    "value": "20261023T134247Z"
                   },
                   {
                     "enabled": true,
@@ -158,11 +179,11 @@
                   {
                     "enabled": true,
                     "key": "X-Amz-Signature",
-                    "value": "629cc3f17a8d86e513c983c2cf17537f72da90b14eb67be7687a920d4d647b03"
+                    "value": "a963910d25ba868d46d5b653cd0f21fc38a53a12787ef9e5885c54e5358a6ffd"
                   }
                 ],
                 "type": "request",
-                "url": "http://localhost:9000/skillhub-media/temp_uploads/avatars/78d1682c-01d3-442a-ab2a-5af56284d370_avatar.png?X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=minioadmin%2F20261022%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-Date=20261022T072634Z\u0026X-Amz-Expires=120\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=629cc3f17a8d86e513c983c2cf17537f72da90b14eb67be7687a920d4d647b03"
+                "url": "http://localhost:9000/skillhub-media/temp_uploads/avatars/72ef8713-068e-4142-a2a6-5213c96983e9_avatar.png?X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=minioadmin%2F20261023%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-Date=20261023T134247Z\u0026X-Amz-Expires=120\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=a963910d25ba868d46d5b653cd0f21fc38a53a12787ef9e5885c54e5358a6ffd"
               },
               {
                 "bodyContent": "",
@@ -207,7 +228,7 @@
         "id": "gv-1791123291788",
         "key": "baseURL",
         "type": "default",
-        "value": "http://localhost:3000/api/v1"
+        "value": "http://localhost/api/v1"
       }
     ],
     "openTabs": [
@@ -267,12 +288,12 @@
           {
             "enabled": true,
             "key": "X-Amz-Credential",
-            "value": "minioadmin/20261022/us-east-1/s3/aws4_request"
+            "value": "minioadmin/20261023/us-east-1/s3/aws4_request"
           },
           {
             "enabled": true,
             "key": "X-Amz-Date",
-            "value": "20261022T072634Z"
+            "value": "20261023T134247Z"
           },
           {
             "enabled": true,
@@ -287,14 +308,14 @@
           {
             "enabled": true,
             "key": "X-Amz-Signature",
-            "value": "629cc3f17a8d86e513c983c2cf17537f72da90b14eb67be7687a920d4d647b03"
+            "value": "a963910d25ba868d46d5b653cd0f21fc38a53a12787ef9e5885c54e5358a6ffd"
           }
         ],
         "type": "request",
-        "url": "http://localhost:9000/skillhub-media/temp_uploads/avatars/78d1682c-01d3-442a-ab2a-5af56284d370_avatar.png?X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=minioadmin%2F20261022%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-Date=20261022T072634Z\u0026X-Amz-Expires=120\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=629cc3f17a8d86e513c983c2cf17537f72da90b14eb67be7687a920d4d647b03"
+        "url": "http://localhost:9000/skillhub-media/temp_uploads/avatars/72ef8713-068e-4142-a2a6-5213c96983e9_avatar.png?X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=minioadmin%2F20261023%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-Date=20261023T134247Z\u0026X-Amz-Expires=120\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=a963910d25ba868d46d5b653cd0f21fc38a53a12787ef9e5885c54e5358a6ffd"
       },
       {
-        "bodyContent": "{\n  \"email\":\"moaazseadawy@gmail.com\",\n  \"code\":\"846288\"\n}",
+        "bodyContent": "{\n  \"email\":\"moaazseadawy@gmail.com\",\n  \"code\":\"551790\"\n}",
         "bodyFormData": [],
         "bodyType": "json",
         "bodyUrlEncoded": [],
@@ -309,7 +330,7 @@
         "url": "{{baseURL}}/users/auth/verify-account"
       },
       {
-        "bodyContent": "{\n  \"username\": \"moazsaadawy\",\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"tempPhotoKey\": \"temp_uploads/avatars/78d1682c-01d3-442a-ab2a-5af56284d370_avatar.png\",\n  \"password\": \"Password123!\",\n  \"cropX\": 10,\n  \"cropY\": 460,\n  \"cropWidth\": 1790,\n  \"cropHeight\": 1790\n}\n",
+        "bodyContent": "{\n  \"username\": \"moazsaadawy\",\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"tempPhotoKey\": \"temp_uploads/avatars/72ef8713-068e-4142-a2a6-5213c96983e9_avatar.png\",\n  \"password\": \"Password123!\",\n  \"cropX\": 10,\n  \"cropY\": 460,\n  \"cropWidth\": 1790,\n  \"cropHeight\": 1790\n}\n",
         "bodyFormData": [],
         "bodyType": "json",
         "bodyUrlEncoded": [],
@@ -322,6 +343,27 @@
         "params": [],
         "type": "request",
         "url": "{{baseURL}}/users/auth/register"
+      },
+      {
+        "bodyContent": "{\n  \"identifier\": \"moaazseadawy@gmail.com\",\n  \"password\": \"Password123!\"\n}\n",
+        "bodyFormData": [],
+        "bodyType": "json",
+        "bodyUrlEncoded": [],
+        "disabledAutoHeaders": [],
+        "headers": [
+          {
+            "enabled": true,
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "id": "req-1792668100000-lgn01",
+        "isDirty": false,
+        "method": "POST",
+        "name": "Login",
+        "params": [],
+        "type": "request",
+        "url": "{{baseURL}}/users/auth/login"
       }
     ]
   },
@@ -340,21 +382,21 @@
   "schemaVersion": 1,
   "sqlQueries": [],
   "state": {
-    "activeModule": "git",
+    "activeModule": "databases",
     "activeQueryTabId": "tab-1792419774186",
     "browser": {
-      "activeTabId": "btab-1792665619314-yjyc",
+      "activeTabId": "btab-1792653731816-sylc",
       "tabs": [
         {
-          "faviconUrl": "http://127.0.0.1:52637/favicon-32x32.png",
+          "faviconUrl": "http://127.0.0.1:64329/favicon-32x32.png",
           "id": "btab-1792653731816-sylc",
-          "reloadKey": 1,
+          "reloadKey": 0,
           "title": "MinIO Console",
           "url": "http://localhost:9001",
           "viewportMode": "desktop"
         },
         {
-          "faviconUrl": "http://127.0.0.1:52638/favicon.ico",
+          "faviconUrl": "http://127.0.0.1:57274/favicon.ico",
           "id": "btab-1792665619314-yjyc",
           "reloadKey": 0,
           "title": "SkillUp Platform — تقرير نتائج الاختبارات وتحديث معالجة الثغرات الأمنية",
@@ -369,7 +411,7 @@
       "tabs": []
     },
     "http": {
-      "activeTabId": "req-1791124335830-dy58d",
+      "activeTabId": "req-1792668100000-lgn01",
       "openTabs": [
         {
           "bodyContent": "{\n  \"filename\": \"avatar.png\",\n  \"contentType\": \"image/png\",\n  \"fileSize\": 1048576,\n  \"category\": \"AVATAR\"\n}",
@@ -427,12 +469,12 @@
             {
               "enabled": true,
               "key": "X-Amz-Credential",
-              "value": "minioadmin/20261022/us-east-1/s3/aws4_request"
+              "value": "minioadmin/20261023/us-east-1/s3/aws4_request"
             },
             {
               "enabled": true,
               "key": "X-Amz-Date",
-              "value": "20261022T072634Z"
+              "value": "20261023T134247Z"
             },
             {
               "enabled": true,
@@ -447,14 +489,14 @@
             {
               "enabled": true,
               "key": "X-Amz-Signature",
-              "value": "629cc3f17a8d86e513c983c2cf17537f72da90b14eb67be7687a920d4d647b03"
+              "value": "a963910d25ba868d46d5b653cd0f21fc38a53a12787ef9e5885c54e5358a6ffd"
             }
           ],
           "type": "request",
-          "url": "http://localhost:9000/skillhub-media/temp_uploads/avatars/78d1682c-01d3-442a-ab2a-5af56284d370_avatar.png?X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=minioadmin%2F20261022%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-Date=20261022T072634Z\u0026X-Amz-Expires=120\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=629cc3f17a8d86e513c983c2cf17537f72da90b14eb67be7687a920d4d647b03"
+          "url": "http://localhost:9000/skillhub-media/temp_uploads/avatars/72ef8713-068e-4142-a2a6-5213c96983e9_avatar.png?X-Amz-Algorithm=AWS4-HMAC-SHA256\u0026X-Amz-Credential=minioadmin%2F20261023%2Fus-east-1%2Fs3%2Faws4_request\u0026X-Amz-Date=20261023T134247Z\u0026X-Amz-Expires=120\u0026X-Amz-SignedHeaders=host\u0026X-Amz-Signature=a963910d25ba868d46d5b653cd0f21fc38a53a12787ef9e5885c54e5358a6ffd"
         },
         {
-          "bodyContent": "{\n  \"email\":\"moaazseadawy@gmail.com\",\n  \"code\":\"846288\"\n}",
+          "bodyContent": "{\n  \"email\":\"moaazseadawy@gmail.com\",\n  \"code\":\"551790\"\n}",
           "bodyFormData": [],
           "bodyType": "json",
           "bodyUrlEncoded": [],
@@ -469,7 +511,7 @@
           "url": "{{baseURL}}/users/auth/verify-account"
         },
         {
-          "bodyContent": "{\n  \"username\": \"moazsaadawy\",\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"tempPhotoKey\": \"temp_uploads/avatars/78d1682c-01d3-442a-ab2a-5af56284d370_avatar.png\",\n  \"password\": \"Password123!\",\n  \"cropX\": 10,\n  \"cropY\": 460,\n  \"cropWidth\": 1790,\n  \"cropHeight\": 1790\n}\n",
+          "bodyContent": "{\n  \"username\": \"moazsaadawy\",\n  \"email\": \"moaazseadawy@gmail.com\",\n  \"tempPhotoKey\": \"temp_uploads/avatars/72ef8713-068e-4142-a2a6-5213c96983e9_avatar.png\",\n  \"password\": \"Password123!\",\n  \"cropX\": 10,\n  \"cropY\": 460,\n  \"cropWidth\": 1790,\n  \"cropHeight\": 1790\n}\n",
           "bodyFormData": [],
           "bodyType": "json",
           "bodyUrlEncoded": [],
@@ -482,6 +524,27 @@
           "params": [],
           "type": "request",
           "url": "{{baseURL}}/users/auth/register"
+        },
+        {
+          "bodyContent": "{\n  \"identifier\": \"moaazseadawy@gmail.com\",\n  \"password\": \"Password123!\"\n}\n",
+          "bodyFormData": [],
+          "bodyType": "json",
+          "bodyUrlEncoded": [],
+          "disabledAutoHeaders": [],
+          "headers": [
+            {
+              "enabled": true,
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "id": "req-1792668100000-lgn01",
+          "isDirty": false,
+          "method": "POST",
+          "name": "Login",
+          "params": [],
+          "type": "request",
+          "url": "{{baseURL}}/users/auth/login"
         }
       ]
     },
@@ -498,10 +561,8 @@
       "tabs": []
     },
     "tables": {
-      "activeTab": "users",
-      "openTabs": [
-        "users"
-      ]
+      "activeTab": null,
+      "openTabs": []
     },
     "terminal": {
       "activeTabId": "tab-1792653739515-rxqr",
@@ -533,5 +594,5 @@
       ]
     }
   },
-  "updatedAt": "2026-10-23T09:25:05.415Z"
+  "updatedAt": "2026-10-23T17:29:37.907Z"
 }

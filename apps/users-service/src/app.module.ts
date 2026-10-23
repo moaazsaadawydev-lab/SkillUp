@@ -9,6 +9,7 @@ import {
   VerificationCodeProvider,
   UserQueryProvider,
   PasswordManagementProvider,
+  LoginProvider,
 } from './providers';
 import { OutboxModule } from './outbox/outbox.module';
 import { RedisModule } from '@skillup/shared/redis';
@@ -53,6 +54,8 @@ import { RabbitMQModule } from '@skillup/shared/rabbitmq';
     VerificationCodeProvider,
     UserQueryProvider,
     PasswordManagementProvider,
+    LoginProvider,
   ],
+  exports: [UsersService, LoginProvider],
 })
 export class AppModule {}

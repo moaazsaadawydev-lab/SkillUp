@@ -6,6 +6,7 @@ service UsersService {
   // Registration & User Creation
   rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
   rpc VerifyAccount (VerifyAccountRequest) returns (VerifyAccountResponse);
+  rpc Login (LoginRequest) returns (LoginResponse);
 
   // User Retrieval & Validation
   rpc FindUserById (FindUserByIdRequest) returns (UserResponse);
@@ -126,6 +127,19 @@ message AuthData {
 }
 
 message VerifyAccountResponse {
+  bool success = 1;
+  string message = 2;
+  AuthData data = 3;
+}
+
+message LoginRequest {
+  string identifier = 1; // Can be email or username
+  string password = 2;
+  string ip_address = 3;
+  string user_agent = 4;
+}
+
+message LoginResponse {
   bool success = 1;
   string message = 2;
   AuthData data = 3;

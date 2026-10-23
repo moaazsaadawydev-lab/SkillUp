@@ -14,6 +14,8 @@ import {
   ChangePasswordRequest,
   ForgotPasswordRequest,
   ResetPasswordRequest,
+  LoginRequest,
+  LoginResponse,
 } from '@skillup/shared/interfaces';
 import {
   RegisterProvider,
@@ -21,6 +23,7 @@ import {
   VerificationCodeProvider,
   UserQueryProvider,
   PasswordManagementProvider,
+  LoginProvider,
 } from './providers';
 
 /**
@@ -38,6 +41,7 @@ export class UsersService {
     private readonly verificationCodeProvider: VerificationCodeProvider,
     private readonly userQueryProvider: UserQueryProvider,
     private readonly passwordManagementProvider: PasswordManagementProvider,
+    private readonly loginProvider: LoginProvider,
   ) {}
 
   /**
@@ -63,6 +67,13 @@ export class UsersService {
     request: SendVerificationCodeRequest,
   ): Promise<ActionResponse> {
     return this.verificationCodeProvider.sendVerificationCode(request);
+  }
+
+  /**
+   * User login with brute-force lockout, dual-identifier support, and session issuance
+   */
+  async login(request: LoginRequest): Promise<LoginResponse> {
+    return this.loginProvider.login(request);
   }
 
   /**
