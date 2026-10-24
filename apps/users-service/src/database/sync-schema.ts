@@ -12,9 +12,9 @@ async function sync() {
     }`,
   );
 
-  logger.log('Synchronizing schema (creating tables and constraints)...');
-  await AppDataSource.synchronize(false);
-  logger.log('Schema synchronized successfully!');
+  logger.log('Running pending database migrations...');
+  await AppDataSource.runMigrations();
+  logger.log('Database migrations executed successfully!');
 
   const queryRunner = AppDataSource.createQueryRunner();
   const tables = await queryRunner.getTables([

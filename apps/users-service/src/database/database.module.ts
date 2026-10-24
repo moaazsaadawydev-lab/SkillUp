@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User, EmailChangeHistory, OutboxMessage } from '@skillup/shared/entities';
+import { InitialUsersSchema1727265600000 } from './migrations/1727265600000-InitialUsersSchema';
 
 @Module({
   imports: [
@@ -23,7 +24,11 @@ import { User, EmailChangeHistory, OutboxMessage } from '@skillup/shared/entitie
           password: configService.get<string>('POSTGRES_PASSWORD', 'postgres'),
           database: dbName,
           entities: [User, EmailChangeHistory, OutboxMessage],
-          synchronize: true, // Enabled for development schema synchronization
+          synchronize:
+            process.env.NODE_ENV !== 'production' &&
+            process.env.DB_SYNCHRONIZE === 'true',
+          migrationsRun: true,
+          migrations: [InitialUsersSchema1727265600000],
           logging:
             process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
         };

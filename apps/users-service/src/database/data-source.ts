@@ -23,7 +23,7 @@ export const AppDataSource = new DataSource({
   database: process.env.POSTGRES_DB === 'skillhub_db' ? 'skillhub_users' : (process.env.POSTGRES_DB || 'skillhub_users'),
   entities: [User, EmailChangeHistory, OutboxMessage],
   migrations: [resolve(__dirname, 'migrations/*{.ts,.js}')],
-  synchronize: true,
+  synchronize: false,
   logging:
     process.env.NODE_ENV === 'production' ? ['error'] : ['error', 'warn'],
 });
