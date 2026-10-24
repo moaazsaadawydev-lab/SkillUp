@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 import { OutboxMessage } from '@skillup/shared/entities';
 import { OutboxStatus } from '@skillup/shared/enums';
@@ -22,6 +22,51 @@ export class OutboxWorker {
   @Cron('*/10 * * * * *')
   async handleCron(): Promise<void> {
     await this.processOutboxMessages();
+  }
+
+  /**
+   * Automated Housekeeping: Periodic cron running every hour to prune historical published outbox messages
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async prunePublishedMessages(): Promise<void> {
+    const retentionHours = parseInt(process.env.OUTBOX_RETENTION_HOURS || '1', 10);
+    const cutoffDate = new Date(Date.now() - retentionHours * 60 * 60 * 1000);
+
+    try {
+      let deleteResult;
+      try {
+        deleteResult = await this.dataSource
+          .createQueryBuilder()
+          .delete()
+          .from(OutboxMessage)
+          .where('status = :status AND "processed_at" < :cutoff', {
+            status: OutboxStatus.PUBLISHED,
+            cutoff: cutoffDate,
+          })
+          .execute();
+      } catch {
+        deleteResult = await this.dataSource
+          .createQueryBuilder()
+          .delete()
+          .from(OutboxMessage)
+          .where('status = :status AND "processedAt" < :cutoff', {
+            status: OutboxStatus.PUBLISHED,
+            cutoff: cutoffDate,
+          })
+          .execute();
+      }
+
+      if (deleteResult.affected && deleteResult.affected > 0) {
+        this.logger.log(
+          `[OutboxPruning] Successfully pruned ${deleteResult.affected} published outbox message(s) older than ${retentionHours}h.`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        '[OutboxPruning] Failed to prune published outbox messages:',
+        error instanceof Error ? error.stack : error,
+      );
+    }
   }
 
   /**
@@ -82,6 +127,18 @@ export class OutboxWorker {
               eventType: msg.eventType,
             },
           });
+
+          // Immediate In-Place Redaction: Sanitize sensitive OTP code before persisting PUBLISHED status
+          if (
+            msg.payload &&
+            typeof msg.payload === 'object' &&
+            'code' in msg.payload
+          ) {
+            msg.payload = {
+              ...msg.payload,
+              code: '[REDACTED]',
+            };
+          }
 
           msg.status = OutboxStatus.PUBLISHED;
           msg.processedAt = new Date();

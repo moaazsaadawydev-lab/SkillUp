@@ -382,7 +382,7 @@
   "schemaVersion": 1,
   "sqlQueries": [],
   "state": {
-    "activeModule": "databases",
+    "activeModule": "git",
     "activeQueryTabId": "tab-1792419774186",
     "browser": {
       "activeTabId": "btab-1792653731816-sylc",
@@ -396,7 +396,7 @@
           "viewportMode": "desktop"
         },
         {
-          "faviconUrl": "http://127.0.0.1:57274/favicon.ico",
+          "faviconUrl": "http://127.0.0.1:51591/favicon.ico",
           "id": "btab-1792665619314-yjyc",
           "reloadKey": 0,
           "title": "SkillUp Platform — تقرير نتائج الاختبارات وتحديث معالجة الثغرات الأمنية",
@@ -594,5 +594,5 @@
       ]
     }
   },
-  "updatedAt": "2026-10-23T17:29:37.907Z"
+  "updatedAt": "2026-10-24T12:30:05.293Z"
 }
